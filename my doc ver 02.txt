@@ -1,0 +1,72 @@
+[B]This release is a fix to servable major bugs, i've updated to 13.4, still working on muledump.[/B]
+
+Mule creator, creates your mules in seconds, all ready to go, no need to log into the game to select the first class or to name the account, as it’s done automatically.
+
+[B]One click login, Provides instant access to any mule with only one click.[/B]
+No longer will you have to logout and find the correct mules details before entering the account email and password as,
+One click Login is simple to use select the mule from the list and click your preferred browser or flash client and it’s done.
+compatible with atomizer/muledump. Account.js.
+
+
+[B]Instructions.[/B]
+
+Basically You set the email like "mymule@gmail.com"
+The email is then modified by the program like so “mymule0@gmail.com”,“mymule1@gmail.com” etc
+
+you can use the google gmail plus one trick
+"myemail+0@gmail.com"
+That way every mule can be verified as all emails will be sent to "myemail@gmail.com".
+
+You set the password
+“123456”
+
+Then you set the starting num and the amount of mules to create.
+
+Then you press start.
+
+
+[IMG]http://i44.tinypic.com/1y8xt5.jpg[/IMG]
+[url]http://i44.tinypic.com/1y8xt5.jpg[/url]
+
+
+[B]At the end click the “Create Muledump” button[/B]
+A Muledump compatible file will be created with the mule account details.
+
+[IMG]http://i42.tinypic.com/35mhdgo.jpg[/IMG]
+[url]http://i42.tinypic.com/35mhdgo.jpg[/url]
+
+A second file as well.
+Email Password Name
+[email]mymule0@gmail.com[/email], 123456 sndsddnsjd
+[email]mymule1@gmail.com[/email] 123456 sdbsvhwjw
+
+[IMG]http://i43.tinypic.com/1479yq.jpg[/IMG]
+[url]http://i43.tinypic.com/1479yq.jpg[/url]
+
+
+[B]One click login supports, xp, vista, windows 7 and 8.[/B]
+Fire fox
+IExplore
+Chrome
+Flash player 11
+via “[url]www.relamofthemadgod.com”[/url]
+
+[IMG]http://i43.tinypic.com/a3jj7n.jpg[/IMG]
+[url]http://i43.tinypic.com/a3jj7n.jpg[/url]
+
+
+[B]The button "Convert Account.js to SOL One click login" explained[/B]
+The one click login is compatible with atomizer/muledump.
+Account.js can be converted to create the one click login cookies,
+There is a limit on the amount of accounts that can be converted, it's set to 20 accounts so use wisely.
+[IMG]http://i39.tinypic.com/b6bj2g.jpg[/IMG]
+[url]http://i39.tinypic.com/b6bj2g.jpg[/url]
+
+
+[B]There is a 200 mule account limit.
+Only one instance of the program can be run at one time.
+Only 20 accounts are visible in the One click login list.[/B]
+
+[url]https://www.virustotal.com/uk/file/fd99d4304d22a773562b819e77f29bf72711cf893498d2bd53fef6ffe600daae/analysis/1369939048/[/url]
+[url]http://virusscan.jotti.org/en/scanresult/a85f04c75c178efa9ca869701d8863418d019e23[/url]
+[ATTACH]170962[/ATTACH]

@@ -1,0 +1,24 @@
+69 accliam 4-5         276
+79 collous 4-5         316
+40 foul 4-5            160
+89 cosmic 2-3          178
+77 gscor 2-3           154
+84 hyder 2-3           168
+86 accpolics 3-4       258
+82 edat 2-3            164
+45 ghostly claocks 2-3 90
+41 ghlem 2             80 
+42 milk  2             80
+
+
+                 Total 1924 life
+
+412 life
+134 inc 270
+
+185 att
+124 def
+128 vit
+
+
+

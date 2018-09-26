@@ -1,0 +1,3665 @@
+#Version 0.21.1
+#Counter: 43
+#WinCounter: 4
+#Window 1
+#TabInfo
+TabText: Layer 0
+TabRenamed: 0
+TabNumber: 0
+TabsetLayer: 0
+#Control: Window1
+X       : 0
+Y       : 0
+CX      : 417
+CY      : 497
+ControlLayer: 0
+Title   : Rotmg Mule Creator 16.4 Version 07
+Class   : Window
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+BkColor : 0
+SystemBkColor : BTNFACE
+EnableC : 1
+DefaultsClass : WS_SYSMENU
+Style   : WS_DLGFRAME, WS_SYSMENU, WS_MINIMIZEBOX
+TypStyle: {...}
+ExStyle : WS_EX_DLGMODALFRAME
+Local : 1
+LastEditorEvent : 1
+
+#Proc: (General)
+include SRVSCKIP.EW
+include reg.ew
+--include regwinpid.ew  --windows product version
+include base64.ew
+include encrpt.ew
+include lex_v2.ew
+
+
+--HRESULT SHGetFolderPath(
+ -- _In_   HWND hwndOwner,
+--  _In_   int nFolder,
+--  _In_   HANDLE hToken,
+--  _In_   DWORD dwFlags,
+---  _Out_  LPTSTR pszPath
+--);
+
+constant CSIDL_APPDATA =#1A
+constant CSIDL_LOCALAPPDATA =#1C
+
+constant xSHGetFolderPath = registerw32Function(shell32, "SHGetFolderPathA", {C_POINTER,C_INT,C_POINTER,C_LONG,C_POINTER}, C_ULONG)
+
+function appdata_path()
+  atom path_add
+  integer ret,char
+  sequence path
+  path_add=allocate(1024*4)
+  ret=w32Func(xSHGetFolderPath,{0,CSIDL_APPDATA,0,1,path_add})
+  path={}
+  if ret=0 then
+    for i=0 to 1024*4 do
+      char=peek(path_add+i)
+	  if char=0 then
+	  	exit
+	  end if
+	  path&=char
+    end for
+  else
+    puts(1,"SHGetFolderPath CSIDL_APPDATA error\n")	
+  end if
+  free(path_add)
+  return path
+end function
+
+function localappdata_path()
+  atom path_add
+  integer ret,char
+  sequence path
+  path_add=allocate(1024*4)
+  ret=w32Func(xSHGetFolderPath,{0,CSIDL_LOCALAPPDATA,0,1,path_add})
+  path={}
+  if ret=0 then
+    for i=0 to 1024*4 do
+      char=peek(path_add+i)
+	  if char=0 then
+	  	exit
+	  end if
+	  path&=char
+    end for
+  else
+    puts(1,"SHGetFolderPath CSIDL_LOCALAPPDATA error\n")	
+  end if
+  free(path_add)
+  return path
+end function
+
+--puts(1,appdata_path())
+--puts(1,localappdata_path())
+
+
+
+sequence accounts_list
+accounts_list={}
+integer account_num
+account_num=1
+
+function is_alpha(integer char)
+	if char>='A' and char<='Z' then
+	  return 1
+	end if
+	if char>='a' and char<='z' then
+	  return 1
+	end if
+	return 0
+end function
+
+function is_num(integer char)
+	if char>='0' and char<='9' then
+	  return 1
+	end if
+
+	return 0
+end function
+
+function convert_accounts(sequence fname)
+  object line
+  integer fn
+  sequence buffer,accounts
+  fn=open(fname,"r")
+  buffer={}
+  while 1 do
+  	line=gets(fn)
+  	if integer(line) then
+  	  exit	
+  	end if
+  	buffer=append(buffer,line)
+  end while
+
+  accounts={}
+
+
+  for i=1 to length(buffer) do
+  	for j=1 to length(buffer[i]) do
+  	  if buffer[i][j]=34 or buffer[i][j]=39 then
+  	
+  		for k=j+1 to length(buffer[i]) do	
+  		  if buffer[i][k]=34 or buffer[i][k]=39 then
+  		    for l=k+1 to length(buffer[i]) do
+  		      if buffer[i][l]=34 or buffer[i][l]=39 then
+  		        for n=l+1 to length(buffer[i]) do
+  		           if buffer[i][n]=34 or buffer[i][n]=39 then
+  		             accounts=append(accounts,{buffer[i][j+1..k-1],buffer[i][l+1..n-1]})
+
+                     exit
+                   end if
+                end for
+                exit
+              end if
+            end for
+  		    exit
+          end if
+        end for
+
+        exit
+  	  end if
+  	end for
+  end for
+  return accounts
+end function
+
+
+
+sequence flash_player_loc,client_swf_loc
+
+flash_player_loc=""
+client_swf_loc=""
+
+sequence rotmg_buildversion
+rotmg_buildversion="16.2"
+
+procedure save_config()
+	integer fn
+	fn=open("config.txt","w")
+	puts(fn,flash_player_loc&"\n")
+	puts(fn,client_swf_loc&"\n")
+	puts(fn,getText(textbox_rotmg_buildversion)&"\n")
+    close(fn)
+end procedure
+
+procedure load_config_txt()
+	integer fn
+	fn=open("config.txt","r")
+	flash_player_loc=gets(fn)
+	flash_player_loc=flash_player_loc[1..length(flash_player_loc)-1]
+	setText(lable_flash_player,flash_player_loc)
+	client_swf_loc=gets(fn)
+	client_swf_loc=client_swf_loc[1..length(client_swf_loc)-1]
+	setText(lable_flash_client,client_swf_loc)
+	
+rotmg_buildversion=gets(fn)
+if rotmg_buildversion[length(rotmg_buildversion)]=10  then
+  rotmg_buildversion=rotmg_buildversion[1..length(rotmg_buildversion)-1]
+end if
+
+setText(textbox_rotmg_buildversion,rotmg_buildversion)
+    close(fn)
+end procedure
+
+load_config_txt()
+
+
+--sequence working_d,name
+--working_d=command_line()
+--name=get_file_fullname_part(working_d[1])
+--working_d=get_file_path_part(working_d[1])
+
+--puts(1,working_d)
+--puts(1,name)
+
+--if equal(lower(name),"exw.exe") then
+	
+--else
+--if chdir(working_d) then
+--else
+--    puts(1, "Error: No directory?\n")
+--end if
+--end if
+
+
+
+include input_stream.ew
+constant sol_inputstream = input_stream_new()
+
+constant inputstream = input_stream_new()
+
+
+--    6 bytes (discarded)
+--    4 bytes that should contain the string 'TSCO'
+--    7 bytes (discarded)
+--    1 byte that signifies the length of name (X bytes)
+--    X bytes name
+--    4 bytes (discarded)
+
+--Element
+
+--Each element has the following structure:
+
+ --   2 bytes length of element name (Y bytes)
+ --   Y bytes element name
+ --   1 byte data type
+ --   Z bytes data (depending on the data type)
+ --  1 byte trailer
+
+sequence solformat
+solformat={}
+
+procedure load_sol()
+  integer fn,char,count,size
+  sequence bytes
+  object ret
+  bytes={}
+  fn=open("bot1.sol","rb")
+  while 1 do
+  	char=getc(fn)
+  	if char=-1 then
+  	  exit	
+  	end if
+  	bytes&=char
+  end while
+  input_stream_set(sol_inputstream,bytes)
+
+
+  ret=input_stream_readfully(sol_inputstream,6)
+  solformat&=ret
+  ?ret
+  ret=input_stream_readfully(sol_inputstream,4)
+  solformat&=ret
+  puts(1,ret&"\n")
+  ret=input_stream_readfully(sol_inputstream,7)
+  solformat&=ret
+  ?ret
+  ret=input_stream_readbyte(sol_inputstream)
+  solformat&=ret
+  ?ret
+  ret=input_stream_readfully(sol_inputstream,ret)
+  solformat&=ret
+  puts(1,ret&"\n")
+  ret=input_stream_readfully(sol_inputstream,3)
+  solformat&=ret
+  ?ret
+  ret=input_stream_readfully(sol_inputstream,2)
+  solformat&=ret
+  puts(1,"size\n")
+  ?ret
+  ?floor(ret[2]/2)
+  --size=ret[2]*ret[1]
+
+  ret=input_stream_readfully(sol_inputstream,floor(ret[2]/2))
+  solformat&=ret
+  puts(1,ret&"\n")
+
+
+
+  --ret=utf8_to_ascii(input_stream_readfully(sol_inputstream,30) )
+  --puts(1,ret)
+  --?ret
+
+  ret=input_stream_readfully(sol_inputstream,2)
+  --ret=input_stream_readshort(sol_inputstream)
+  puts(1,"hash or size\n")
+  ?ret
+  ?ret[2]
+  size=ret[2]
+
+  ret=input_stream_readfully(sol_inputstream,floor(size/2))
+  puts(1,"everything\n")
+  ?ret
+
+  --count=0
+  --for i=1 to length(ret) do
+  --	count+=ret[i]
+  --end for
+  --?count
+  puts(1,ret&"\n")
+
+
+  ret=input_stream_readfully(sol_inputstream,2)
+
+  ?ret
+  size=floor(ret[2]/2)
+
+
+  ret=input_stream_readfully(sol_inputstream,size)
+  puts(1,"everything\n")
+  ?ret
+  puts(1,ret&"\n")
+
+  ret=input_stream_readfully(sol_inputstream,2)
+
+  ?ret
+  size=floor(ret[2]/2)
+
+  ret=input_stream_readfully(sol_inputstream,size)
+  puts(1,"everything\n")
+  ?ret
+  puts(1,ret&"\n")
+
+  close(fn)
+
+  for i=1 to length(solformat) do
+  	puts(1,solformat[i])
+  end for
+
+  bytes={}
+
+  fn=open("soldata.sol","wb")
+
+    for i=1 to length(solformat) do
+  	  puts(fn,solformat[i])
+  	  bytes&=solformat[i]
+    end for
+    close(fn)
+    bytes&=6
+    bytes&=(length("jhdhgdzdzbjnjjbxjdvndvhjsbjsbghdjcmncmbvbcmdjabdamx@gmail.com")*2)+1
+    bytes&="jhdhgdzdzbjnjjbxjdvndvhjsbjsbghdjcmncmbvbcmdjabdamx@gmail.com"
+    bytes&=0
+    bytes&=17
+    bytes&="Password"
+    bytes&=6
+    bytes&=(length("123456")*2)+1
+    bytes&="123456"
+    bytes&=0
+
+    bytes[6]=(length(bytes)-6)
+
+
+    fn=open("mymule.sol","wb")
+
+    for i=1 to length(bytes) do
+  	  puts(fn,bytes[i])
+    end for
+
+
+    close(fn)
+
+
+
+
+end procedure
+--load_sol()
+
+
+procedure load_soldata()
+  integer fn,char,count,size
+  sequence bytes
+
+  object ret
+  bytes={}
+  solformat={}
+  fn=open("soldata.sol","rb")
+  while 1 do
+  	char=getc(fn)
+  	if char=-1 then
+  	  exit	
+  	end if
+  	solformat&=char
+  end while	
+
+  close(fn)
+
+end procedure
+load_soldata()
+
+procedure create_mule_sol(sequence email, sequence pass, sequence name)
+  integer fn
+  sequence bytes
+
+    bytes=solformat
+
+    bytes&=6
+    bytes&=(length(email)*2)+1
+    bytes&=email
+    bytes&=0
+    bytes&=17
+    bytes&="Password"
+    bytes&=6
+    bytes&=(length(pass)*2)+1
+    bytes&=pass
+    bytes&=0
+
+    bytes[6]=(length(bytes)-6)
+
+
+    fn=open("mules\\"&name&".sol","wb")
+
+    for i=1 to length(bytes) do
+  	  puts(fn,bytes[i])
+    end for
+
+
+    close(fn)
+end procedure
+
+--create_mule_sol("sdshjfhdjoweowe@gmail.com","123456","")
+
+
+
+constant mule_limit=20000000
+constant convert_limit=20000000
+
+constant MAIN_VERSION=4
+constant PROGRAM_KEY="HKEY_CURRENT_USER\\SOFTWARE\\Winlowmen\\VERSION "&sprint(MAIN_VERSION)&"\\Settings"
+
+--constant PROGRAM_KEY="HKEY_LOCAL_MACHINE\\SOFTWARE\\Classes\\CLSID\\"&productid_clisd
+
+
+procedure load_config()
+object data,ret
+
+  if regKeyExists(PROGRAM_KEY)=1 then
+    ret=regQueryValue(PROGRAM_KEY,"FormWidth",0)
+    if sequence(ret) then
+      ret=serial_encrypt_client_xor(fromBase64(ret))
+    else
+      ret=mule_limit
+    end if
+
+
+    ret=regQueryValue(PROGRAM_KEY,"FormMenu",0)
+    if sequence(ret) then
+      ret=serial_encrypt_client_xor(fromBase64(ret))
+    else
+      ret=convert_limit
+    end if
+
+    data=regSetValue(PROGRAM_KEY,"FormHeight",123)
+    if regQueryValue(PROGRAM_KEY,"FormHeight",0)!=123 then
+      free_console()
+      ret = message_box("Don’t have read write access to the registry ","Information",MB_TASKMODAL + MB_ICONINFORMATION + MB_OK)
+      abort(0)	
+    end if
+
+  else
+    data=regSetValue(PROGRAM_KEY,"FormWidth",toBase64(serial_encrypt_client_xor({0})))
+    data=regSetValue(PROGRAM_KEY,"FormMenu",toBase64(serial_encrypt_client_xor({0})))
+
+    data=regSetValue(PROGRAM_KEY,"FormHeight",123)
+    if regQueryValue(PROGRAM_KEY,"FormHeight",0)!=123 then
+      free_console()
+      ret = message_box("Don’t have read write access to the registry ","Information",MB_TASKMODAL + MB_ICONINFORMATION + MB_OK)
+      abort(0)	
+    end if
+  end if
+
+end procedure
+load_config()
+
+function file_exsist(sequence fname)
+  integer fn
+  fn=open(fname,"r")
+  if fn!=-1  then
+    close(fn)
+  	return 1
+  end if
+  return 0
+end function
+
+function get_file_path_part(sequence fname)
+    for i=length(fname) to 1 by -1 do
+    	if fname[i]='\\' then
+    		return fname[1..i]
+    	end if
+    end for
+	--return ""
+end function
+
+function get_file_name_part(sequence fname)
+    for i=length(fname) to 1 by -1 do
+    	if fname[i]='\\' then
+    	   for j=length(fname) to i by -1 do
+    	   	  if fname[j]='.' then
+    	   	  	return fname[i+1..j-1]
+    	   	  end if
+    	   end for
+    	   return fname[i+1..length(fname)]
+    	end if
+    end for
+	--return ""
+end function
+
+constant ERROR_ALREADY_EXISTS = 183
+
+global atom hMutex
+integer arg
+constant
+    xSetLastError = registerw32Procedure(kernel32, "SetLastError",{C_INT}),
+    xCreateMutex = registerw32Function(kernel32, "CreateMutexA",
+                                                {C_POINTER,C_INT,C_POINTER},C_LONG),
+    xReleaseMutex  = registerw32Procedure(kernel32, "ReleaseMutex",{C_LONG}),
+
+	xScrollWindow = registerw32Procedure( user32, "ScrollWindow", {C_LONG,C_LONG,C_LONG,C_POINTER,C_POINTER} )
+
+arg = allocate_string("winprogetr")
+hMutex = w32Func(xCreateMutex,{0, 0, arg})
+if w32Func(GetLastError,{}) = ERROR_ALREADY_EXISTS then
+    w32Proc(xReleaseMutex,{hMutex})
+    free(arg)
+    free_console()
+    abort(0)
+end if
+
+
+integer stop
+stop=0
+
+integer choosename
+choosename=0
+
+
+sequence mule_list
+mule_list={}
+
+integer mule_number,mule_count,mule_amount
+mule_number=0
+mule_count=0
+mule_amount=0
+sequence mule_email_part1,mule_email_part2,mule_name,mule_name_patten
+sequence mule_pass
+mule_email_part1=""
+mule_email_part2=""
+mule_pass=""
+mule_name=""
+mule_name_patten={}
+
+function create_mulename()
+sequence temp
+    temp=""
+	for i=1 to 10 do
+	  if i=1 then
+	    if mule_name_patten[i]='$' then
+	      temp&=upper(97+rand(25))
+	    else
+	      temp&=upper(mule_name_patten[i])
+	    end if
+	  else
+	    if mule_name_patten[i]='$' then
+	      if rand(2)=1 then
+	        temp&=97+rand(25)
+	      else
+	        temp&=upper(97+rand(25))
+	      end if
+	    else
+	      temp&=mule_name_patten[i]
+	    end if
+	
+	  end if
+	end for
+	mule_name=temp
+	return temp
+end function
+
+atom hWndMainWindow
+
+sequence server_list
+server_list={
+{"USWest","50.18.113.133"},
+{"USMidWest","107.22.218.252"},
+{"EUWest","46.137.187.86"},
+{"USEast","184.72.218.199"},
+{"AsiaSouthEast","46.137.247.5"},
+{"USSouth","107.22.231.55"},
+{"USSouthWest","50.18.176.194"},
+{"EUEast","46.51.176.123"},
+{"EUNorth","176.34.240.11"},
+{"EUSouthWest","176.34.240.126"},
+{"USEast3","50.19.47.160"},
+{"USWest2","184.169.130.44"},
+{"USMidWest2","174.129.56.145"},
+{"USEast2","23.21.243.164"},
+{"USNorthWest","184.169.131.108"},
+{"USSouth2","107.20.55.255"},
+{"AsiaEast","46.137.218.95"},
+{"USSouth3","204.236.195.161"},
+{"EUSouth","176.34.71.225"},
+{"EUNorth2","46.137.38.91"},
+{"EUWest2","176.34.195.206"}
+}
+
+for i=1 to length(server_list) do
+  addItem(combox_serverlist,server_list[i][1])	
+end for
+setIndex(combox_serverlist,9)
+
+procedure debug(sequence text)
+	--puts(1,text)
+	setText(console_output,text&getText(console_output))
+end procedure
+
+procedure debug2(sequence text)
+	puts(1,text)
+	--setText(console_output,text&getText(console_output))
+end procedure
+
+
+function real(sequence string)
+sequence temp
+temp=value(string)
+return temp[2]
+end function
+
+
+include ARCFOUR.EW
+include ARCFOUR2.EW
+
+include output_stream.ew
+include location.ew
+include object_status.ew
+include object_status_data.ew
+include stat_data.ew
+include tile.ew
+include players.ew
+
+
+
+
+
+constant crypt32 = registerw32Library("crypto.dll")
+constant xrsa_public_key_encyrp= registerw32Function(crypt32, "rsa_public_key_encyrp", {C_POINTER}, C_POINTER)
+
+
+atom start_time
+
+sequence send_buffer
+send_buffer={}
+
+global constant SM_ASYNC2 = #FFFD
+atom Server_sock
+Server_sock=0
+
+sequence key1,key2
+
+--these work
+--key1 is for encrypting data to send to the client
+key1={114,197,88,60,175,182,129,137,149,203,215,75,128}
+--key2 is for decrypting data from the client
+key2={49,31,128,105,20,81,199,27,9,161,58,42,110}
+--finaly got rc4 encrption working 27/03/2013 --update streaming cipher working 03/05/2013
+
+arcfour_init_encrypt(key1)
+arcfour_init_encrypt2(key2)
+
+
+constant fail_packet=0
+constant useportal_packet=3--USEPORTAL = 3;
+constant ping_packet=6
+constant global_notification_packet=9
+constant tradedone_packet=12--TRADEDONE:int = 12;
+constant shoot_packet=13
+constant hello_packet=17
+constant tradeaccepted_packet=18--TRADEACCEPTED = 18;
+constant nameresult_packet=20--NAMERESULT = 20;
+constant requesttrade_packet=21--REQUESTTRADE = 21;
+constant tradechanged_packet=23--TRADECHANGED = 23;
+constant text_packet=25 --TEXT
+constant update_packet=26
+constant create_suc_packet=31
+constant choosename_packet=33-- CHOOSENAME = 33;
+constant create_packet=36
+constant reconnect_packet=39--RECONNECT = 39;
+constant play_sound_packet=44
+constant load_packet=45
+constant accountlist_packet=46
+constant teleport_packet=49--TELEPORT = 49;
+constant goto_packet=52
+constant show_effect_packet=56
+constant mapinfo_packet=60
+constant traderequest_packet=61 --TRADEREQUESTED = 61;
+constant new_tick_packet=62-- NEW_TICK = 62
+constant notification_packet=63 --NOTIFICATION
+constant tradestart_packet=67--TRADESTART = 67;
+constant playertext_packet=69--PLAYERTEXT = 69;
+constant allyshoot_packet=74 --ALLYSHOOT
+constant clientstat_packet=75--CLIENTSTAT = 75;
+constant invitedtoguild_packet=77--INVITEDTOGUILD = 77;
+
+
+sequence packet_names
+packet_names=repeat("",100)
+
+packet_names[ fail_packet+1 ]= "failed"
+packet_names[ useportal_packet+1 ]= "useportal"
+packet_names[ ping_packet+1 ]= "ping"
+packet_names[ global_notification_packet+1 ]= "global notifcaion"
+packet_names[ tradedone_packet+1 ]= "tradedone"
+packet_names[ shoot_packet+1 ]= "shoot"
+packet_names[ hello_packet+1 ]= "hello"
+packet_names[ tradeaccepted_packet+1 ] ="tradeaccepted"
+packet_names[ requesttrade_packet+1 ]= "requesttrade"
+packet_names[ tradechanged_packet+1 ]= "tradechanged"
+packet_names[ text_packet+1 ]= "text"
+packet_names[ update_packet+1 ]= "update"
+packet_names[ create_suc_packet+1 ]= "create sucs"
+packet_names[ create_packet+1 ]= "create packet"
+packet_names[ reconnect_packet+1 ]= "reconnect"
+packet_names[ play_sound_packet+1 ]= "play sound"
+packet_names[ load_packet+1 ]= "load packet"
+packet_names[ accountlist_packet+1 ]= "accountlist"
+packet_names[ goto_packet+1 ]= "goto packet"
+packet_names[ show_effect_packet+1 ]= "show effect"
+packet_names[ mapinfo_packet+1 ]= "mapinfo"
+packet_names[ traderequest_packet+1 ]= "traderequest"
+packet_names[ new_tick_packet+1 ]= "new tick"
+packet_names[ notification_packet+1 ]= "notification"
+packet_names[ tradestart_packet+1 ]= "tradestart"
+packet_names[ playertext_packet+1 ]= "playertext"
+packet_names[ allyshoot_packet+1 ]= "allyshoot"
+packet_names[ clientstat_packet+1 ]= "clientstat"
+packet_names[ invitedtoguild_packet+1 ]= "invitedtoguild"
+
+
+sequence map_data
+integer map_width,map_height
+map_width=255
+map_height=255
+map_data={}
+
+
+--new main loop control
+
+
+integer current_tick
+current_tick=0
+
+integer my_object_id
+my_object_id=0
+
+sequence my_position,my_name
+my_position={}
+sequence target_position
+target_position={133,135}
+sequence my_status
+my_status={}
+my_name={}
+--end main loop control
+
+--trading system
+sequence my_items,my_items_selected,there_items,there_items_selected
+my_items={}
+there_items={}
+my_items_selected=repeat(0,12)
+there_items_selected=repeat(0,12)
+integer trading_mode
+trading_mode=0 --0 equals selling life for def, 1 equals selling def for life
+--end trading system
+
+sequence object_id_to_player_class
+object_id_to_player_class=repeat(0,4000000) --2 million objects
+
+constant player_constants={806,805,804,803,802,801,800,799,798,797,784,782,775,768}
+sequence player_bitmap_offset
+integer tmp
+player_bitmap_offset=repeat(0,length(player_constants))
+tmp=length(player_constants)
+
+for i=1 to length(player_constants) do
+  player_bitmap_offset[tmp]=(21*(i-1))+8
+  tmp-=1
+end for
+
+
+
+
+
+-----------------------------write functions--------------------------------------
+
+function writeutf(sequence data, sequence v)
+  sequence s
+   s=int_to_bytes(length(v))
+   data&=s[2]&s[1]&v
+   return data
+end function
+
+function writeint(sequence data ,atom v)
+sequence s
+   s=int_to_bytes(v)
+   data&=s[4]&s[3]&s[2]&s[1]
+   return data
+end function
+
+function writefloat(sequence data ,atom v)
+sequence s
+   s = atom_to_float32(v)
+   data&=s[4]&s[3]&s[2]&s[1]
+   return data
+end function
+
+function writebool(sequence data, integer b)
+   data&=b
+   return data
+end function
+
+function writeshort(sequence data ,atom v)
+sequence s
+   s=int_to_bytes(v)
+   data&=s[2]&s[1]
+   return data
+end function
+
+function writebyte(sequence data ,integer v)
+   data&=v
+   return data
+end function
+
+function rsa_public(sequence data)
+  atom message,result
+  integer inc,char
+  sequence text
+  message=allocate_string(data)
+  result=w32Func(xrsa_public_key_encyrp,{message})
+  inc=0
+
+  text=""
+  while 1 do
+  	char=peek(result+inc)
+  	
+  	if char=0 then
+  		exit
+  	end if
+  	if char!=10 then
+  	  text&=char
+  	
+  	end if
+  	inc+=1
+  end while
+
+  free(message)
+  return text
+end function
+
+
+constant xGetTickCount = registerw32Function(kernel32, "GetTickCount", {}, C_LONG)
+
+function get_tick_count()
+  return  w32Func(xGetTickCount,{})
+end function
+
+start_time=get_tick_count()
+
+function current_time()
+  return  w32Func(xGetTickCount,{})-start_time
+end function
+
+
+constant space3dto2d=32
+
+function convert3dspaceto2d(atom v)
+  sequence float
+  integer haspoint,leftside,padleft,padright
+  atom rightside
+  haspoint=0
+
+  float=sprint(v)
+  for i=1 to length(float) do
+  	if float[i]='.' then
+  	  haspoint=1
+  	  leftside=real(float[1..i-1])
+  	  rightside=real("0."&float[i+1..length(float)])
+  	end if
+  end for
+
+  if haspoint=1 then
+    padleft=floor(space3dto2d*leftside)
+  	padright=floor(space3dto2d*rightside)
+  	return padleft+padright
+  else
+    return space3dto2d*v
+  end if
+end function
+
+
+
+function hello_packet_write()
+  sequence data,temp
+  data={}
+  --data=writeutf(data,"16.1") --build version
+  data=writeutf(data,rotmg_buildversion)
+
+  data=writeint(data,-2) --game id
+  --data=writeutf(data,"XRU8xQGLzCLaQR2BMOVLE9aPLggIPbNcig/rA1Wyi+KnlfIO02VXKpDEMO7hjscFXccRGOnTHpKoLkbuo2OXrU0wGWzJLsNGSf007Ga71Eu6VCZ61dNIzm71qKl9B5z7ERceI/JFk9NQ7RvmdQpK1s+bB9qAsVWGwhlECBA4EU0=")--create_guest_guid_java())--"PAP6RSeDHDRLpNVO4dw7oMsZS/6gIdnSFj9LHjI/YL8Al61XUPAxMtx5d/fYzmdwbgdRed6X1pHcVKUX16q59wvlzVouQZeim0P8HwXxbuMWwS+Bf9YFUANoriQzjMV/PlNAc17GfxkVQAn2LNYSV3m+BfEAwE6/WUNtyIYZJWI=") --guid
+  --data=writeutf(data,"Z+TWxbDpdKsNAKn358XZHOTI4nZEI4/oCrOB7CI8uDYdgWmXN4DKwfCcONgurW+xrGEWoLzviOyg5yRYxaeV55N7OB75OSGtslcs4Tjc8oNRILQG5wofw2YH+MG/jWshUfxC8yQBWJ/Akn+j1ROuS4+CEgjklZjLGC/Oc0EVgDQ=")
+
+   --login deatils
+  data=writeutf(data, rsa_public(mule_email_part1&sprint(mule_number-1)&mule_email_part2))
+  data=writeutf(data, rsa_public(mule_pass))
+  --temp=create_login_guid_java(con_email,con_pass)
+  --data=writeutf(data,temp[1])
+  --data=writeutf(data,temp[2])
+  --puts(1,temp[1]&"\n")
+  --puts(1,temp[2]&"\n")
+
+  --guest accoun login
+  --data=writeutf(data,create_guest_guid_java())
+  --data=writeutf(data,"") --pass
+
+  data=writeutf(data,"")--texted("1368824702")) --secert
+  data=writeint(data,-1) --key time
+  data=writeshort(data,0)
+  --data=writebyte(data,0) --
+  data=writeint(data,0)  --jd length
+  --data=writebyte(data,0) -- jd bytes
+
+  data=writeutf(data,"") --pk
+  data=writeutf(data,"rotmg") --tq
+  data=writeutf(data,"") --h
+  data=writeutf(data,"rotmg") --platforum
+
+  data=writeutf(data,"") --unknow
+
+  temp=reverse(int_to_bytes(length(data)+5)) &hello_packet
+
+  data=arcfour_encrypt_block2(data)
+  return temp & data
+end function
+
+procedure playertext_packet_write(sequence text)
+sequence data,temp
+  data={}
+	data=writeutf(data,text)
+
+  temp=reverse(int_to_bytes(length(data)+5)) &69
+
+  data=arcfour_encrypt_block2(data)
+  send_buffer=append(send_buffer,{temp&data})
+end procedure
+
+--integer map_width,map_height
+sequence map_name
+
+procedure mapinfo_packet_read(integer packet_length)
+  object temp
+  sequence data
+  integer count
+  count=0
+	map_width=input_stream_readint(inputstream)
+	count+=4
+	map_height=input_stream_readint(inputstream)
+	count+=4
+	map_name=input_stream_readutf(inputstream)
+	count+=length(map_name)+2
+	temp=input_stream_readint(inputstream)
+	count+=4
+	temp=input_stream_readint(inputstream)
+	count+=4
+	temp=input_stream_readbool(inputstream)
+	count+=1
+	temp=input_stream_readbool(inputstream)
+	count+=1
+	
+    --debug(input_stream_slice(inputstream,1, (packet_length-5)-count )&"\n")
+    --need to slice the correct amount from the map info pack
+    input_stream_set(inputstream, input_stream_slice(inputstream, ((packet_length-5)-count)+1, input_stream_length(inputstream) ) )
+	
+    map_data={}
+    for i=1 to map_height do
+      map_data=append(map_data,repeat(0,map_width))	
+    end for
+--init to zero
+	
+end procedure
+
+function create_packet_write()
+  sequence data,temp
+  data={}
+
+  data=writeshort(data,782)
+  data=writeshort(data,0)
+
+  temp=reverse(int_to_bytes(length(data)+5)) &create_packet
+
+  data=arcfour_encrypt_block2(data)
+
+  return temp & data
+end function
+
+function load_packet_write()
+  sequence data,temp
+  data={}
+
+  data=writeint(data,1)
+  data=writebyte(data,0)
+
+  temp=reverse(int_to_bytes(length(data)+5)) &45
+
+  data=arcfour_encrypt_block2(data)
+  return temp & data
+end function
+
+function useportal_packet_write(integer num)
+  sequence data,temp
+  data={}
+
+  data=writeint(data,num)
+
+  temp=reverse(int_to_bytes(length(data)+5)) &useportal_packet
+
+  data=arcfour_encrypt_block2(data)
+  return temp & data
+end function
+
+
+procedure create_suc_packet_read()
+  object res
+  debug2("create_suc\n")
+  my_object_id=input_stream_readint(inputstream)
+  debug2(sprint(my_object_id)&"\n")
+  --?res
+  res=input_stream_readint(inputstream)
+  debug2(sprint(res)&"\n")
+  --?res
+end procedure
+
+sequence update_drop_list
+update_drop_list={}
+
+procedure update_packet_read()
+  object res
+  integer size,object_type,index
+  integer found
+  sequence temp,temp2,stats
+
+  --new code optimizeation
+  integer object_id
+  sequence position
+  integer class
+
+  --
+  integer fn
+  atom direction
+
+  --puts(1,"updated\n")
+  size=input_stream_readshort(inputstream)
+
+  --puts(1,"tile size "&sprint(size)&"\n")
+  if size!=0 then --tiles
+    --fn=open("tiles.txt","w")
+  	for i=0 to size-1 do
+  	  res=tile_new_from_input(inputstream)
+  	  res=tile_get(res)
+  	  map_data[res[2]][res[1]]=res[3]
+  	  --puts(fn,sprint(tile_get_type(res))&"\n")
+  	
+    end for
+    --for yy=1 to 255 do
+      --for xx=1 to 255 do
+      	--puts(fn,sprint(map_data[yy])&"\n")
+      --end for	
+    --end for
+    --close(fn)
+
+  end if
+
+  size=input_stream_readshort(inputstream)
+  --puts(1,"newobj size "&sprint(size)&"\n")
+  if size!=0 then --new obj
+  	for i=0 to size-1 do
+  	  res=object_status_new_from_input(inputstream)
+  	  temp=object_status_get(res)
+  	  --?temp[1]--object type
+  	  found=0
+  	  for j=1 to length(player_constants) do
+  	  	if temp[1]=player_constants[j] then
+  	  	  found=j
+  	  	end if
+  	  end for
+  	  if found!=0 then
+  	  	
+  	  --my object code--
+  	  temp=object_status_data_get(temp[2])
+  	  --puts(1,sprint(temp[1])&"\n")
+  	  if temp[1]=my_object_id then
+  	  	debug2("my status updated\n")
+  	  	--?i
+  	  	--?size
+
+  	  	--repaintRect( Window1, 560, 1, 560+160, 200 )
+  	  	my_position=location_get(temp[2])
+  	  	
+        --direction=((315+rand(45))*PI/180)--((180+rand(180))*PI/180)
+        --target_position[1]=my_position[1]+4*sin(direction)
+        --target_position[2]=my_position[2]+4*cos(direction)
+        --?target_position[1]
+        --?target_position[2]
+  	  	--my_position_real=my_position
+  	  	my_status={}
+  	  	for j=1 to length(temp[3]) do
+  	  	  temp2=stat_data_get(temp[3][j])
+  	  	  --?temp2
+  	  	  if temp2[1]=31 then
+  	  	  --	puts(1,temp2[3]&"\n")
+  	  	  --	?j
+  	  	    my_name=temp2[3]
+  	  	  end if
+  	  	  my_status=append(my_status,temp2)
+  	  	end for
+
+  	  	--?length(my_status)
+  	  	--?my_status
+  	  	--?location_get(temp[2])
+  	  end if
+  	  -- end my object code
+  	
+  	  stats={}
+  	  temp=object_status_data_get(temp[2])
+  	  for j=1 to length(temp[3]) do
+  	  	temp2=stat_data_get(temp[3][j])
+
+  	  	stats=append(stats,temp2)
+  	  end for
+  	
+      --player_list=append(player_list,{temp[1],stats,location_get(temp[2]),found})
+      position=location_get(temp[2])
+      object_id_to_player_class[temp[1]]=player_new(temp[1],stats,position,found,{convert3dspaceto2d(position[1]),convert3dspaceto2d(position[2])},stats[29][3])
+
+  	  object_status_delete(res)
+  	
+      end if
+
+  	end for
+  end if
+
+  size=input_stream_readshort(inputstream)
+  --puts(1,"drop size "&sprint(size)&"\n")
+
+  for i=0 to size-1 do
+  	 res=input_stream_readint(inputstream)
+     --new optimize code
+     if object_id_to_player_class[res]!=0 then --object to be deleted is a player
+       player_delete(object_id_to_player_class[res])
+       object_id_to_player_class[res]=0
+     end if
+
+
+     --end new optimized code
+  	
+  end for
+
+    --UPDATEATT = 11;
+  temp=reverse(int_to_bytes(length("")+5)) &11
+  --write=arcfour_encrypt_block2(write)
+  send_buffer=append(send_buffer,{temp})
+  --res=WsockSendData(Server_sock,temp)
+
+end procedure
+
+
+procedure global_notification_read()
+   object res
+    --debug("global_notification \n")
+	res=input_stream_readint(inputstream)
+	res=input_stream_readutf(inputstream)
+	--debug2( res&"\n")
+end procedure
+
+procedure accountlist_read()
+  object res
+  res=input_stream_readint(inputstream)
+  res=input_stream_readshort(inputstream)
+  for i=0 to res-1 do
+  	res=input_stream_readint(inputstream)
+  end for
+end procedure
+
+procedure show_effect_read()
+  object res
+  res=input_stream_readbyte(inputstream)
+  res=input_stream_readint(inputstream)
+  res=location_new_from_input(inputstream)
+  location_delete(res)
+  res=location_new_from_input(inputstream)
+  location_delete(res)
+  res=input_stream_readint(inputstream)
+end procedure
+
+procedure allyshoot_read()
+  object res
+  res=input_stream_readbyte(inputstream)
+  res=input_stream_readint(inputstream)
+  res=input_stream_readshort(inputstream)
+  res=input_stream_readint(inputstream)
+end procedure
+
+procedure notification_read()
+  object res
+  --debug2("notification \n")
+  res=input_stream_readint(inputstream)
+  res=input_stream_readutf(inputstream)
+  --debug2( res&"\n")
+  res=input_stream_readint(inputstream)
+end procedure
+
+procedure disconnect()
+   --debug2("disconnect called\n")
+   for i=1 to length(send_buffer) do
+     --res=WsockSendData(Server_sock,send_buffer[i][1])
+   end for
+   send_buffer={}
+   --sleep(1)
+   WsockCloseSocket(Server_sock)
+
+   --sleep(1)
+   arcfour_init_encrypt(key1)
+   arcfour_init_encrypt2(key2)
+   input_stream_set(inputstream, "")
+
+   my_position={}
+   my_status={}
+   my_name={}
+
+   my_items={}
+   there_items={}
+   my_items_selected=repeat(0,12)
+   there_items_selected=repeat(0,12)
+   trading_mode=0
+
+
+   --need to deallocate this correctly
+   player_class_list={}
+   my_object_id=0
+
+   my_status={}
+   player_freelist_delete()
+   object_id_to_player_class=repeat(0,4000000) --2 million objects
+
+   setTimer(Window1,1002,100)
+end procedure
+
+
+
+procedure new_tick_read()
+  integer size,tick_id
+  object res
+  sequence temp,write,temp2,stats,temp_stat
+
+  --new code optimizeation
+  integer object_id
+  sequence position
+  integer class,count
+
+  tick_id=input_stream_readint(inputstream)
+  res=input_stream_readint(inputstream)
+  size=input_stream_readshort(inputstream)
+
+  for i=0 to size-1 do
+  	res=object_status_data_new_from_input(inputstream)
+  	
+    temp=object_status_data_get(res)
+
+    --new optimize code
+    object_id=temp[1]
+    if object_id_to_player_class[object_id]!=0 then --object to be updated is a player
+      stats=player_stats_get(object_id_to_player_class[object_id])
+      --?length(stats)
+      for j=1 to length(temp[3]) do
+      	temp_stat=stat_data_get(temp[3][j])
+      	for k=1 to length(stats) do
+      	  if temp_stat[1]=stats[k][1] then
+      	  	stats[k]=temp_stat
+      	  	exit
+      	  end if	
+      	end for
+      end for
+
+      if object_id=my_object_id then
+      	my_status=stats
+      end if
+
+      position=location_get(temp[2])
+      --if my_object_id=object_id then
+      --	my_position=position
+      --end if
+      player_update( object_id_to_player_class[object_id],stats,position, {convert3dspaceto2d(position[1]),convert3dspaceto2d(position[2]) } )
+    end if
+    --end new optimized code
+
+  	object_status_data_delete(res)
+  end for
+
+  --if size!=0 then --cause a bug that cost me 2-3 hours to track down
+  	current_tick=tick_id
+  --end if
+
+  write=""
+  write=writeint(write,current_tick) --tick id
+  --?current_tick
+  --?tick_id
+  write=writeint(write,current_time()) --time
+  --position
+
+  --?point_distance(my_position[1],my_position[2],target_position[1],target_position[2])
+
+
+
+  if length(my_position) then
+  write=writefloat(write,my_position[1])
+  write=writefloat(write,my_position[2])
+
+  write=writeshort(write,0)
+  --Move = 7;
+  temp=reverse(int_to_bytes(length(write)+5)) &7
+  write=arcfour_encrypt_block2(write)
+  send_buffer=append(send_buffer,{temp&write})
+  else
+    write=writefloat(write,134)
+  write=writefloat(write,142)
+
+  write=writeshort(write,0)
+  --Move = 7;
+  temp=reverse(int_to_bytes(length(write)+5)) &7
+  write=arcfour_encrypt_block2(write)
+  send_buffer=append(send_buffer,{temp&write})
+  end if
+
+  if choosename=1 then
+  	choosename=0
+  	write=""
+  	write=writeutf(write,create_mulename())
+  	--?create_mulename()
+    puts(1,mule_name&"\n")
+    --?length(mule_name)
+    temp=reverse(int_to_bytes(length(write)+5)) &33
+    write=arcfour_encrypt_block2(write)
+    send_buffer=append(send_buffer,{temp&write})
+  end if
+
+
+
+
+end procedure
+
+procedure text_read()
+  object res
+  atom object_id
+  res=input_stream_readutf(inputstream)
+  object_id=input_stream_readint(inputstream)
+  res=input_stream_readint(inputstream)
+  res=input_stream_readbyte(inputstream)
+  res=input_stream_readutf(inputstream)
+  res=input_stream_readutf(inputstream)
+  --puts(1,res&"\n")
+  if object_id!=4294967295 and object_id_to_player_class[object_id]!=0 then
+  	 player_message_set(object_id_to_player_class[object_id],{res,33*12})
+  end if
+
+  res=input_stream_readutf(inputstream)
+
+  --	this.name_ = badi.readUTF(); // UTF
+	--	this.objectId_ = badi.readInt(); // Int
+	--	this.numStars_ = badi.readInt(); // Int
+	--	this.bubbleTime_ = badi.readUnsignedByte(); // UnsignedByte
+	--	this.recipient_ = badi.readUTF(); // UTF
+	--	this.text_ = badi.readUTF(); // UTF
+	--	this.cleanText_ = badi.readUTF(); // UTF
+end procedure
+
+atom ping_start
+ping_start=0
+
+procedure ping_read()
+  object res
+  sequence write,temp
+
+  if ping_start=0 then
+  	ping_start=time()
+  end if
+  --?(time()-ping_start)/2
+
+  ping_start=time()
+
+  res=input_stream_readint(inputstream)
+
+  write=""
+  --?res
+  write=writeint(write,res) --serial
+  write=writeint(write,current_time()) --time
+
+  --PONG = 16;
+  temp=reverse(int_to_bytes(length(write)+5)) &16
+  write=arcfour_encrypt_block2(write)
+  send_buffer=append(send_buffer,{temp&write})
+
+end procedure
+
+procedure goto_packet_read()
+  object res
+  sequence write,temp
+  res=input_stream_readint(inputstream)
+  if res=my_object_id then
+    debug2("yes set myposition\n")
+    res=location_new_from_input(inputstream)
+    my_position[1]=location_get_x(res)
+    my_position[2]=location_get_y(res)
+  else
+    res=location_new_from_input(inputstream)
+  end if
+
+  location_delete(res)
+
+  write=""
+  write=writeint(write,current_time()) --time
+
+  temp=reverse(int_to_bytes(length(write)+5)) &14
+  write=arcfour_encrypt_block2(write)
+  send_buffer=append(send_buffer,{temp&write})
+end procedure
+
+procedure shoot_packet_read()
+  object res
+  res=input_stream_readbyte(inputstream)
+  res=input_stream_readint(inputstream)
+  if res=my_object_id then
+  	debug2("shoot_packet_testing")
+  end if
+  res=input_stream_readint(inputstream)
+  res=location_new_from_input(inputstream)
+  location_delete(res)
+  res=input_stream_readint(inputstream)
+  res=input_stream_readshort(inputstream)
+end procedure
+
+procedure play_sound_read()
+  object res
+  res=input_stream_readint(inputstream)
+  res=input_stream_readbyte(inputstream)
+end procedure
+
+procedure traderequest_packet_read()
+  object res
+  sequence data,temp
+  data={}
+  res=input_stream_readutf(inputstream)
+
+end procedure
+
+
+procedure clientstat_packet_read()
+  object res
+  res=input_stream_readutf(inputstream)
+  --debug2(res&"\n")
+  res=input_stream_readint(inputstream)
+
+end procedure
+
+
+atom webserver_start_time
+webserver_start_time=0
+
+procedure nameresult_packet_read()
+  object res
+  integer bool
+  bool=input_stream_readbyte(inputstream)
+
+  --?bool
+  --debug2(bool&"\n")
+  res=input_stream_readutf(inputstream)
+
+  if bool=0 then
+    debug2("name already in use\n")
+  	choosename=1
+  else
+    disconnect()
+    mule_list=append(mule_list,{mule_email_part1&sprint(mule_number-1)&mule_email_part2, mule_pass, mule_name})
+    debug("Mule Created: ("&sprint(mule_count)&") "&mule_name&" Seconds: "&sprint(time()-webserver_start_time)&"\n")
+  end if
+
+end procedure
+
+
+
+procedure reconnect_packet_read()
+  object res
+  integer size
+  res=input_stream_readutf(inputstream)
+  puts(1,"name "&res&"\n")
+  res=input_stream_readutf(inputstream)
+  puts(1,"host"&res&"\n")
+  res=input_stream_readint(inputstream)
+  puts(1,"port ")
+  ?res
+  puts(1,"\n")
+  res=input_stream_readint(inputstream)
+  puts(1,"game id")
+  ?res
+  puts(1,"\n")
+  res=input_stream_readint(inputstream)
+  puts(1,"key time")
+  ?res
+  size=input_stream_readshort(inputstream)
+  ?size
+  res=input_stream_readfully(inputstream,size)
+  ?res
+  --this.name_ = badi.readUTF(); // UTF
+  --this.host_ = badi.readUTF(); // UTF
+	--	this.port_ = badi.readInt(); // Int
+	--	this.gameId_ = badi.readInt(); // Int
+	--	this.keyTime_ = badi.readInt(); // Int
+	--	short size = badi.readShort();
+	--	this.key_ = new byte[size];
+	--	badi.readFully(key_);
+
+end procedure
+
+procedure invitedtoguild_packet_read()
+  object res
+  res=input_stream_readutf(inputstream)	
+  res=input_stream_readutf(inputstream)	
+end procedure
+
+
+procedure connect_to_server()
+	integer iwork, port
+  sequence swork,ip
+
+  port = 2050
+
+  iwork = WsockInit()
+  if iwork = -1 then -- WinSock failed
+    iwork = message_box("WSockInit() failed!","Error",MB_TASKMODAL + MB_ICONSTOP + MB_OK)
+    abort(99)
+  end if
+
+  hWndMainWindow = getHandle(Window1)
+  --blocking connect, might need to make this none blocking
+  --puts(1,server_list[getIndex(combox_serverlist)][1]&"\n")
+  --?getIndex(combox_serverlist)
+  Server_sock=Wsock_new(server_list[getIndex(combox_serverlist)][2], 2050 , hWndMainWindow, SM_ASYNC2,or_all({FD_READ,FD_CLOSE,FD_CONNECT}))
+  --Server_sock=Wsock_new("50.18.113.133", 2050 , hWndMainWindow, SM_ASYNC,or_all({FD_READ,FD_CLOSE,FD_CONNECT}))
+  --Server_sock=Wsock_new("ec2-176-34-195-206.eu-west-1.compute.amazonaws.com", 2050 , hWndMainWindow, SM_ASYNC,or_all({FD_READ,FD_CLOSE,FD_CONNECT}))
+
+end procedure
+
+
+
+
+
+
+procedure read_packet()
+  integer packet_id,packet_len,temp
+  sequence data,fail_message,write
+  object res
+
+  --puts(1,"location class size "&sprint(location_classsize())&"\n")
+  --puts(1,"object_status class size "&sprint(object_status_classsize())&"\n")
+  --puts(1,"object_status_data class size "&sprint(object_status_data_classsize())&"\n")
+  --puts(1,"stat_data class size "&sprint(stat_data_classsize())&"\n")
+  --puts(1,"tile class size "&sprint(tile_classsize())&"\n")
+
+  --puts(1,"size of  player_class_list "&sprint(length(player_class_list))&"\n")
+  while 1 do
+
+
+  if input_stream_length(inputstream)>5 and input_stream_length(inputstream)>=bytes_to_int( {input_stream_peek(inputstream,4),input_stream_peek(inputstream,3),input_stream_peek(inputstream,2),input_stream_peek(inputstream,1)} ) then
+  else
+    exit
+  end if
+
+   for i=1 to length(send_buffer) do
+     temp=WsockSendData(Server_sock,send_buffer[i][1])
+     if temp!=length(send_buffer[i][1]) then
+       if temp=-1 then
+         debug2("sending error socket error\n")
+       else
+	     debug2("sending error sent: "&sprint(temp)&" total length: "&sprint(send_buffer[i][1])&"\n")
+       end if
+     end if
+   end for
+   send_buffer={}
+
+
+  packet_id=input_stream_peek(inputstream,5)
+  packet_len=bytes_to_int( {input_stream_peek(inputstream,4),input_stream_peek(inputstream,3),input_stream_peek(inputstream,2),input_stream_peek(inputstream,1)} )
+	
+  --puts(1,"packet id: "&packet_names[packet_id+1]&"\n")
+  --?packet_id
+
+  if input_stream_length(inputstream)>5 then
+  	data=arcfour_decrypt_block(input_stream_slice(inputstream,6,packet_len))
+  	
+  	input_stream_set(inputstream, input_stream_slice(inputstream,packet_len+1, input_stream_length(inputstream) ) )
+  	
+  	input_stream_set(inputstream, data&input_stream_get(inputstream))
+  	
+  end if
+
+  if packet_id=fail_packet then
+    debug2("fail\n")
+  	debug2(sprint(input_stream_readint(inputstream))&"\n")
+  	fail_message=input_stream_readutf(inputstream)
+  	debug2(fail_message&"\n")
+  	if length(fail_message)>6 then
+  	  if fail_message[1]='A' and fail_message[2]='c' then
+  	  	--account
+  	  	--puts(1,"accouct in use found \n")
+  	  	sleep(2)
+  	  	disconnect()
+        connect_to_server()
+  	  end if	
+  	end if
+  elsif packet_id=ping_packet then
+    ping_read()
+
+  elsif packet_id=shoot_packet then
+    shoot_packet_read()
+  elsif packet_id=global_notification_packet then
+    global_notification_read()
+  elsif packet_id=play_sound_packet then
+    play_sound_read()
+  elsif packet_id=create_suc_packet then
+    create_suc_packet_read()
+
+  elsif packet_id=nameresult_packet then
+    nameresult_packet_read()
+  elsif packet_id=accountlist_packet then
+    accountlist_read()
+  elsif packet_id=goto_packet then
+    goto_packet_read()
+  elsif packet_id= show_effect_packet then
+    show_effect_read()
+  elsif packet_id= text_packet then
+    text_read()
+  elsif packet_id=reconnect_packet then
+    reconnect_packet_read()
+  elsif packet_id=update_packet then
+
+	  update_packet_read()
+	
+  elsif packet_id= new_tick_packet then
+    new_tick_read()
+
+  elsif packet_id= traderequest_packet then
+    traderequest_packet_read()
+  elsif packet_id=  notification_packet then
+     notification_read()
+  elsif packet_id=mapinfo_packet then
+  	mapinfo_packet_read(packet_len)
+  elsif packet_id=	allyshoot_packet then
+    allyshoot_read()
+  elsif packet_id=clientstat_packet then
+    clientstat_packet_read()
+  elsif packet_id=invitedtoguild_packet then
+    invitedtoguild_packet_read()
+  else
+    debug2(sprint(packet_id)&"\n")
+    debug2("unknow packet\n")
+    sleep(100)
+  end if
+
+  end while
+
+    for i=1 to length(send_buffer) do
+     temp=WsockSendData(Server_sock,send_buffer[i][1])
+     if temp!=length(send_buffer[i][1]) then
+       if temp=-1 then
+         debug2("sending error socket error\n")
+       else
+	     debug2("sending error sent: "&sprint(temp)&" total length: "&sprint(send_buffer[i][1])&"\n")
+       end if
+     end if
+   end for
+   send_buffer={}
+
+
+end procedure
+
+procedure processServerMessage2(atom hWnd, atom arg1, atom arg2)
+  atom      index, newsock
+  integer   action, sock, iwork
+  object    owork,junk
+  sequence  newIP,swork,rx,tx
+  sequence  data,temp
+
+  action = lo_word(arg2)
+  sock = arg1
+
+  if action=FD_CONNECT then
+
+  	debug2("connected\n")
+  	temp=hello_packet_write()
+  	--puts(1,"send hello packet\n")
+  	iwork=WsockSendData(sock,temp)
+  	--?iwork
+  	--?length(temp)
+  	--iwork=WsockSendData(sock,create_packet_write())
+  	--puts(1,"send load packet\n")
+  	temp=create_packet_write()
+  	iwork=WsockSendData(sock,temp)
+  	--?iwork
+  	--?length(temp)
+  elsif action = FD_READ then
+    rx = ""
+    owork = WsockReadData_1024(sock,1024)
+    while sequence(owork) do
+      rx = rx & owork
+      owork = WsockReadData_1024(sock,1024)
+    end while
+    if length(rx) > 0 then
+      --puts(1,"packet recived\n")
+      input_stream_append(inputstream,rx)
+
+      if input_stream_length(inputstream)>5 then
+        --puts(1,"packet length "&sprint(bytes_to_int( {input_stream_peek(inputstream,4),input_stream_peek(inputstream,3),input_stream_peek(inputstream,2),input_stream_peek(inputstream,1)})) &"  : actual len:"&sprint(input_stream_length(inputstream)) &"\n" )
+        --puts(1,"packet id:"&sprint(input_stream_peek(inputstream,5))&"\n")
+
+        if input_stream_length(inputstream)>=bytes_to_int( {input_stream_peek(inputstream,4),input_stream_peek(inputstream,3),input_stream_peek(inputstream,2),input_stream_peek(inputstream,1)} ) then
+          read_packet()	
+        end if
+
+      end if
+
+    end if
+  elsif action = FD_CLOSE then
+     debug2("server closed\n")
+     WsockCloseSocket(sock)
+     --setTimer(Window1,1002,1000*60)
+  end if
+end procedure
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+setEnable(button_stop,0)
+
+
+
+sequence guild_len
+guild_len="DD07BF9C5B705619407D6130A5B289EA856859A8"
+
+function create_random_guild()
+sequence temp,char_set
+   char_set={"0","1","2","3","4","5","6","7","8","9","A","B","C","D","E","F"}
+   temp={}
+   for i=1 to length(guild_len) do
+   	 temp&=char_set[rand(length(char_set))]
+   end for	
+   return temp
+end function
+
+function create_newemail()
+ sequence temp
+  temp=mule_email_part1&"%2B"&sprint(mule_number)&mule_email_part2
+  mule_number+=1
+  mule_count+=1
+  return temp
+
+end function
+--puts(1,create_random_guild())
+--?length(create_random_guild())
+--?length(guild_len)
+
+global constant SM_ASYNC = #FFFF
+
+atom webserver_sock
+webserver_sock=0
+
+
+
+integer webserver_mode
+
+ webserver_mode=0
+
+
+
+
+procedure connect_to_webserver()
+  integer iwork, port
+  sequence swork,ip
+
+  port = 80
+
+  webserver_start_time=time()
+
+  iwork = WsockInit()
+  if iwork = -1 then -- WinSock failed
+    iwork = message_box(" Please close all programs using port 80, Skype Etc. WSockInit() failed!","Error",MB_TASKMODAL + MB_ICONSTOP + MB_OK)
+    abort(99)
+  end if
+
+  hWndMainWindow = getHandle(Window1)
+  --blocking connect, might need to make this none blocking
+  --puts(1,server_list[getIndex(combox_serverlist)][1]&"\n")
+  --?getIndex(combox_serverlist)
+  webserver_sock=Wsock_new("realmofthemadgod.appspot.com", port , hWndMainWindow, SM_ASYNC,or_all({FD_READ,FD_CLOSE,FD_CONNECT}))
+  --Server_sock=Wsock_new("50.18.113.133", 2050 , hWndMainWindow, SM_ASYNC,or_all({FD_READ,FD_CLOSE,FD_CONNECT}))
+  --Server_sock=Wsock_new("ec2-176-34-195-206.eu-west-1.compute.amazonaws.com", 2050 , hWndMainWindow, SM_ASYNC,or_all({FD_READ,FD_CLOSE,FD_CONNECT}))
+
+end procedure
+
+
+
+
+
+
+
+--isAgeVerified=1&ignore=%3Csome+random+integer+here+...+probably+for+anti+caching%3E&guid=DD07BF9C5B705619407D6130A5B289EA856859A8&newGUID=mypoop001%40somedomain123.org&newPassword=123456&go=go
+
+
+
+
+--https://realmofthemadgod.appspot.com/char/list?guid=none@yahoo.co.uk&ignore=7915&password=123456
+
+function http_respond(sequence data)
+sequence sh	
+sh ="" -- Server header
+
+    -- Server return header
+    sh &= "POST /account/register HTTP/1.1\n"
+    sh &= "Host: realmofthemadgod.appspot.com\n"
+    sh &= "User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:21.0) Gecko/20100101 Firefox/21.0\n"
+    sh &= "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    sh &= "Accept-Language: en-gb,en;q=0.5\n"
+    --sh &= "Accept-Encoding: gzip, deflate\n"
+    sh &= "Connection: keep-alive\n"
+    sh &= "Content-Type: application/x-www-form-urlencoded\n"
+    sh &= sprintf("Content-Length: %d\n",{length(data)})
+
+    return sh & 13 & 10 & data
+end function
+
+function http_respond2(sequence data)
+sequence sh	
+sh ="" -- Server header
+
+    -- Server return header
+    sh &= "POST /char/list HTTP/1.1\n"
+    sh &= "Host: realmofthemadgod.appspot.com\n"
+    sh &= "User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:21.0) Gecko/20100101 Firefox/21.0\n"
+    sh &= "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    sh &= "Accept-Language: en-gb,en;q=0.5\n"
+    --sh &= "Accept-Encoding: gzip, deflate\n"
+    sh &= "Connection: keep-alive\n"
+    sh &= "Content-Type: application/x-www-form-urlencoded\n"
+    sh &= sprintf("Content-Length: %d\n",{length(data)})
+
+    return sh & 13 & 10 & data
+end function
+
+function http_respond3(sequence data)
+sequence sh	
+sh ="" -- Server header
+
+    -- Server return header
+    --realmofthemadgod.appspot.com/char/verify?guid=fdfdfdfd@drdrb.com&password=123456"
+    sh &= "POST /char/verify HTTP/1.1\n"
+    sh &= "Host: realmofthemadgod.appspot.com\n"
+    sh &= "User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:21.0) Gecko/20100101 Firefox/21.0\n"
+    sh &= "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    sh &= "Accept-Language: en-gb,en;q=0.5\n"
+    --sh &= "Accept-Encoding: gzip, deflate\n"
+    sh &= "Connection: keep-alive\n"
+    sh &= "Content-Type: application/x-www-form-urlencoded\n"
+    sh &= sprintf("Content-Length: %d\n",{length(data)})
+
+    return sh & 13 & 10 & data
+end function
+
+
+--<Success/>
+--"<Error>Error.emailAlreadyUsed</Error>"
+
+--timers
+--1001 is unable to recive a respon,may be the send fails
+--1003 is unable to connect to the server
+
+sequence account_email,account_pass,account_name
+account_email=""
+account_pass=""
+account_name=""
+
+sequence getbuffer
+getbuffer={}
+
+procedure processServerMessage(atom hWnd, atom arg1, atom arg2)
+  atom      index, newsock
+  integer   action, sock, iwork, fn,pos,count
+  object    owork,junk,ret
+  sequence  newIP,swork,rx,tx
+  sequence  data,temp
+
+  action = lo_word(arg2)
+  sock = arg1
+
+  if action=FD_CONNECT then
+    --debug2("connected\n")
+    killTimer(Window1,1003)
+    setTimer(Window1,1001,1000*20)
+     --puts(1,http_respond("crap"))
+     --puts(1,http_respond("isAgeVerified=1&ignore=6373&guid=DD07BF9C5B705619407D6130A5B289EA856859A8&&newGUID=mypoop01@somedomain123.org&newPassword=123456&go=go"))
+     if webserver_mode=0 then
+       iwork=WsockSendData(webserver_sock,http_respond("isAgeVerified=1&ignore=6373&guid="&create_random_guild()&"&newGUID="&create_newemail()&"&newPassword="&getText(textbox_password)&"&go=go"))
+     elsif webserver_mode=1 then
+       getbuffer={}
+       iwork=WsockSendData(webserver_sock,http_respond2("guid="&account_email&"&ignore=6373&password="&account_pass))
+
+     elsif webserver_mode=2 then
+       iwork=WsockSendData(webserver_sock,http_respond3("guid="&mule_email_part1&"%2B"&sprint(mule_number-1)&mule_email_part2&"&ignore=6373&password="&mule_pass))
+       puts(1,  "guid="&mule_email_part1&"+"&sprint(mule_number-1)&mule_email_part2&"&ignore=6373&password="&mule_pass&"\n" )
+     end if
+
+     --puts(1,"\n")
+  elsif action = FD_READ then
+    rx = ""
+    owork = WsockReadData(sock,1)
+    while sequence(owork) do
+      rx = rx & owork
+      owork = WsockReadData(sock,1)
+    end while
+    if length(rx) > 0 then
+      killTimer(Window1,1001)
+      --fn=open("crap.txt","w")
+      --puts(fn,rx&"\n")
+      --close(fn)
+      --puts(1,rx&"\n")
+      --for i=1 to length(rx) do
+      -- 	puts(1,rx[i])
+      --end for
+      if webserver_mode=0 then
+      	
+
+       if match("<Success/>", rx)!=0  then
+         debug("Email: "&mule_email_part1&"+"&sprint(mule_number-1)&mule_email_part2&" Pass: "&mule_pass&" Http Success\n")
+         WsockCloseSocket(sock)
+         if mule_count<=mule_amount then
+           --connect_to_webserver()
+           choosename=1
+           --connect_to_server()
+
+           --new hack 16.4
+           mule_list=append(mule_list,{mule_email_part1&"+"&sprint(mule_number-1)&mule_email_part2, mule_pass, mule_name})
+           debug("Mule Created: ("&sprint(mule_count)&") "&mule_name&" Seconds: "&sprint(time()-webserver_start_time)&"\n")
+           --webserver_mode=2--new
+           setTimer(Window1,1002,100)
+           --connect_to_webserver()
+           --end new hack 16.4
+
+         end if
+       elsif match("<Error>Error.emailAlreadyUsed</Error>", rx)!=0  then
+       	  debug("Email: "&mule_email_part1&"+"&sprint(mule_number-1)&mule_email_part2&" Pass: "&mule_pass&" Http emailAlreadyUsed\n")
+       	  ret = message_box("emailAlreadyUsed","Error",MB_TASKMODAL + MB_ICONSTOP + MB_OK)
+       	  setEnable(button_start,1)
+          setEnable(button_stop,0)
+       end if
+
+      elsif webserver_mode=1 then
+
+        getbuffer&=rx
+
+
+      	pos=match("<Account><Name>",getbuffer)
+      	
+        if pos!=0 then
+          --puts(1,getbuffer[pos+15..pos+24]&"\n")
+          for i=pos+15 to length(getbuffer) do
+          	if getbuffer[i]='<' then
+          	  account_name=getbuffer[pos+15..i-1]	
+          	  exit
+          	end if
+          end for
+
+        end if
+
+        pos=match("<Error>Account credentials not valid</Error>",getbuffer)
+        if pos!=0 then
+          closeWindow(Window3)
+       	  ret = message_box("Account credentials not valid","Error",MB_TASKMODAL + MB_ICONSTOP + MB_OK)
+       	  return
+        end if
+
+        if equal(getbuffer[length(getbuffer)-3..length(getbuffer)],{13,10,13,10}) then
+          --puts(1,"gaz done")
+
+          create_mule_sol(account_email,account_pass,account_name)
+          account_num+=1
+
+          ret=regQueryValue(PROGRAM_KEY,"FormMenu",0)
+
+          if sequence(ret) then
+            --puts(1,"ok\n")
+            ret=serial_encrypt_client_xor(fromBase64(ret))
+            count=ret[1]
+            ret=regSetValue(PROGRAM_KEY,"FormMenu",toBase64(serial_encrypt_client_xor( {count+1} ))	)
+          else
+            --puts(1,"crap\n")
+            count=convert_limit
+          end if
+
+          if account_num<=length(accounts_list) and count<convert_limit then
+          	account_email=accounts_list[account_num][1]
+            account_pass=accounts_list[account_num][2]
+            connect_to_webserver()
+  	        setTimer(Window1,1003,1000*20)
+  	      else
+  	        closeWindow(Window3)
+  	        if count>=convert_limit then
+  	          ret = message_box("Converting limited reached "&sprint(convert_limit),"Information",MB_TASKMODAL + MB_ICONINFORMATION + MB_OK)
+  	        else
+	          ret = message_box("Finished converting Muledump accounts.js to One click login  ","Information",MB_TASKMODAL + MB_ICONINFORMATION + MB_OK)
+  	        end if
+  	      end if
+          setScrollPos( progressbar1, getScrollPos( progressbar1 ) + 1 )
+        end if
+
+      elsif webserver_mode=2 then
+        if match("<Success/>", rx)!=0  then
+          puts(1,"poopom\n")
+          webserver_mode=0
+        end if
+        puts(1,rx)
+      end if
+
+
+    end if
+  elsif action = FD_CLOSE then
+     --debug2("close\n")
+     WsockCloseSocket(sock)
+  end if
+end procedure
+#EndProc
+
+#Proc: onEvent
+procedure Window1_onEvent (integer self, integer event, sequence params)--params is ( int iMsg, atom wParm, atom lParm )
+  if params[1] = SM_ASYNC then
+	processServerMessage(hWndMainWindow,params[2],params[3])
+  elsif params[1] = SM_ASYNC2 then
+	processServerMessage2(hWndMainWindow,params[2],params[3])
+  end if
+end procedure
+setHandler( Window1, w32HEvent, routine_id("Window1_onEvent"))
+#EndProc
+
+#Proc: onTimer
+procedure Window1_onTimer (integer self, integer event, sequence params)--params is ( int timerId)
+object ret, count
+  if params[1]=1001 then --called from inside the web server conneced
+    killTimer(Window1,1001)
+    ret = message_box("Connection timed out, unable to get a response from  realmofthemadgod.appspot.com ","Error",MB_TASKMODAL + MB_ICONSTOP + MB_OK)
+
+  elsif params[1]=1002 then--called server nexus from disconect
+    killTimer(Window1,1002)
+
+
+
+    ret=regQueryValue(PROGRAM_KEY,"FormWidth",0)
+
+    if sequence(ret) then
+      --puts(1,"ok\n")
+      ret=serial_encrypt_client_xor(fromBase64(ret))
+      count=ret[1]
+      --ret=regSetValue(PROGRAM_KEY,"FormWidth",toBase64(serial_encrypt_client_xor( {count+1} ))	)
+    else
+      --puts(1,"crap\n")
+      count=mule_limit
+    end if
+
+    --always save
+    create_mule_sol(mule_email_part1&sprint(mule_number-1)&mule_email_part2,mule_pass,mule_name)
+
+    if mule_count<mule_amount and mule_amount!=0 and count<mule_limit then
+
+      if stop=0 then
+
+      	connect_to_webserver()
+      else
+        setEnable(button_start,1)
+        stop=0
+      end if
+
+    else
+      --puts(1,"done all mules created\n")
+      if count<mule_limit then
+      	ret = message_box("Finished creating the mule accounts  ","Information",MB_TASKMODAL + MB_ICONINFORMATION + MB_OK)
+      	setEnable(button_start,1)
+        setEnable(button_stop,0)
+      else
+        ret = message_box(sprint(mule_limit)&" mule limit reached","Information",MB_TASKMODAL + MB_ICONINFORMATION + MB_OK)
+        setEnable(button_start,1)
+        setEnable(button_stop,0)
+      end if
+
+    end if
+
+  elsif params[1]=1003 then--called from start button
+     killTimer(Window1,1003)
+    ret = message_box("Connection timed out, unable to connect to realmofthemadgod.appspot.com ","Error",MB_TASKMODAL + MB_ICONSTOP + MB_OK)
+
+  end if
+
+  --is unable to recive a respon,may be the send fails
+end procedure
+setHandler( Window1, w32HTimer, routine_id("Window1_onTimer"))
+#EndProc
+
+#Control: LText18
+AWindow : 30
+X       : 0
+Y       : 0
+CX      : 390
+CY      : 20
+ControlLayer: 0
+Title   : Botmaker,  The only verified legitimate download mpgh.net.
+Class   : LText
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 1
+Local : 1
+OrigTitle : LText18
+
+#Control: LText35
+AWindow : 30
+X       : 30
+Y       : 20
+CX      : 30
+CY      : 20
+ControlLayer: 0
+Title   : Sever:
+Class   : LText
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 4
+Local : 1
+OrigTitle : LText35
+
+#Control: combox_serverlist
+AWindow : 30
+X       : 60
+Y       : 20
+CX      : 150
+CY      : 20
+ControlLayer: 0
+Title   : 
+Class   : Combo
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 6
+Local : 1
+OrigTitle : Combo36
+
+#Control: LText3
+AWindow : 30
+X       : 30
+Y       : 40
+CX      : 30
+CY      : 20
+ControlLayer: 0
+Title   : Email:
+Class   : LText
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 13
+Local : 1
+OrigTitle : LText3
+
+#Control: textbox_email
+AWindow : 30
+X       : 60
+Y       : 40
+CX      : 160
+CY      : 20
+ControlLayer: 0
+Title   : email@gmail.com
+Class   : EditText
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 12
+Local : 1
+OrigTitle : EditText2
+
+#Control: LText12
+AWindow : 30
+X       : 250
+Y       : 40
+CX      : 50
+CY      : 20
+ControlLayer: 0
+Title   : Start num:
+Class   : LText
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 20
+Local : 1
+OrigTitle : LText12
+
+#Control: textbox_startnum
+AWindow : 30
+X       : 300
+Y       : 40
+CX      : 40
+CY      : 20
+ControlLayer: 0
+Title   : 0
+Class   : EditText
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+DirParent : LText12
+Visible : 1
+EnableC : 1
+Numeric : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 21
+Local : 1
+OrigTitle : EditText13
+
+#Control: LText4
+AWindow : 30
+X       : 10
+Y       : 70
+CX      : 50
+CY      : 20
+ControlLayer: 0
+Title   : Password:
+Class   : LText
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 14
+Local : 1
+OrigTitle : LText4
+
+#Control: textbox_password
+AWindow : 30
+X       : 60
+Y       : 70
+CX      : 160
+CY      : 20
+ControlLayer: 0
+Title   : 123456
+Class   : EditText
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 15
+Local : 1
+OrigTitle : EditText5
+
+#Control: LText9
+AWindow : 30
+X       : 260
+Y       : 70
+CX      : 40
+CY      : 20
+ControlLayer: 0
+Title   : Amount
+Class   : LText
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 18
+Local : 1
+MaxValue : 999
+OrigTitle : LText9
+
+#Control: textbox_amount
+AWindow : 30
+X       : 300
+Y       : 70
+CX      : 40
+CY      : 20
+ControlLayer: 0
+Title   : 1
+Class   : EditText
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Numeric : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 16
+Local : 1
+OrigTitle : EditText7
+
+#Control: Group31
+AWindow : 30
+X       : 10
+Y       : 100
+CX      : 380
+CY      : 80
+ControlLayer: 0
+Title   : Name
+Class   : Group
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : textbox_name
+SeqChildName  : LText34
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 7
+Local : 1
+OrigTitle : Group31
+
+#Control: LText34
+AWindow : 30
+X       : 130
+Y       : 110
+CX      : 250
+CY      : 60
+ControlLayer: 0
+Title   : Name "$" will be replaced with a random letter lower or upper case\n Mule$$$$$$ becomes muleuslPoA 6 Random letters at the end
+Class   : LText
+Enabled : 0
+Checked : 0
+Parent  : Group31
+PClass  : Group
+SeqParentName  : Group31
+SeqParentClass  : Group
+SeqChildName  : 
+DirParent : Group31
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 8
+Local : 1
+OrigTitle : LText34
+
+#Control: textbox_name
+AWindow : 30
+X       : 20
+Y       : 120
+CX      : 90
+CY      : 20
+ControlLayer: 0
+Title   : $$$$$$$$$$
+Class   : EditText
+Enabled : 0
+Checked : 0
+Parent  : Group31
+PClass  : Group
+SeqParentName  : Group31
+SeqParentClass  : Group
+SeqChildName  : 
+DirParent : Group31
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 9
+Local : 1
+OrigTitle : EditText32
+
+#Control: button_start
+AWindow : 30
+X       : 10
+Y       : 190
+CX      : 90
+CY      : 20
+ControlLayer: 0
+Title   : Start
+Class   : PushButton
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 19
+Local : 1
+LastEditorEvent : 3
+OrigTitle : PushButton11
+
+#Proc: onClick
+procedure button_start_onClick (integer self, integer event, sequence params)--params is ()
+sequence email,pass,name
+integer pos
+object ret
+  email=getText(textbox_email)
+  pass=getText(textbox_password)
+  if match("@", email)=0 or match(".", email)=0 or length(email)<5 then
+  	 --puts(1,"enter a vaild email\n")
+  	 ret = message_box("Not a vaild email","Error",MB_TASKMODAL + MB_ICONSTOP + MB_OK)
+  	return
+  end if
+
+  if length(pass)<6 then
+    ret=message_box("Enter a password with at least 6 letter's","Error",MB_TASKMODAL + MB_ICONSTOP + MB_OK)
+  	--puts(1,"enter a password with at least 6 chars\n")
+  	return
+  end if
+
+  name=getText(textbox_name)
+  mule_name_patten=name
+  if length(name)!=10 then
+    ret=message_box("Enter a name with 10 letter's","Error",MB_TASKMODAL + MB_ICONSTOP + MB_OK)
+  	return
+  end if
+
+  for i=1 to 10 do
+  	if is_alpha(name[i])!=1 and name[i]!='$' then
+  	  ret=message_box("Enter a name with only alphabet letter's and $" ,"Error",MB_TASKMODAL + MB_ICONSTOP + MB_OK)
+      return 	
+  	end if
+  end for
+  webserver_mode=0
+
+
+  pos=match("@", email)
+  mule_email_part1=email[1..pos-1]
+  --puts(1, mule_email_part1&"\n")
+  mule_email_part2=email[pos..length(email)]
+  --puts(1, mule_email_part2)
+
+  mule_pass=pass
+
+  mule_number=real(getText(textbox_startnum))
+  mule_amount=real(getText(textbox_amount))
+
+
+  ret=regQueryValue(PROGRAM_KEY,"FormWidth",0)
+  if sequence(ret) then
+    ret=serial_encrypt_client_xor(fromBase64(ret))
+    ret=ret[1]
+  else
+    ret=mule_limit
+  end if
+
+  if ret>=mule_limit then
+    ret = message_box(sprint(mule_limit)&" mule limit reached","Information",MB_TASKMODAL + MB_ICONINFORMATION + MB_OK)
+    return
+  end if
+
+  mule_list={}
+  setText(console_output,"")
+
+  setEnable(button_start,0)
+  setEnable(button_stop,1)
+  connect_to_webserver()
+  setTimer(Window1,1003,1000*20)
+
+end procedure
+setHandler( button_start, w32HClick, routine_id("button_start_onClick"))
+#EndProc
+
+#Control: button_stop
+AWindow : 30
+X       : 110
+Y       : 190
+CX      : 90
+CY      : 20
+ControlLayer: 0
+Title   : Stop
+Class   : PushButton
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 22
+Local : 1
+LastEditorEvent : 3
+OrigTitle : PushButton14
+
+#Proc: onClick
+procedure button_stop_onClick (integer self, integer event, sequence params)--params is ()
+  stop=1
+  setEnable(button_stop,0)
+end procedure
+setHandler( button_stop, w32HClick, routine_id("button_stop_onClick"))
+#EndProc
+
+#Control: PushButton28
+AWindow : 30
+X       : 280
+Y       : 190
+CX      : 100
+CY      : 20
+ControlLayer: 0
+Title   : MuleDump
+Class   : PushButton
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 17
+Local : 1
+LastEditorEvent : 3
+OrigTitle : PushButton28
+
+#Proc: onClick
+procedure PushButton28_onClick (integer self, integer event, sequence params)--params is ()
+  openWindow(Window3, Normal)
+end procedure
+setHandler( PushButton28, w32HClick, routine_id("PushButton28_onClick"))
+#EndProc
+
+#Control: PushButton43
+AWindow : 30
+X       : 340
+Y       : 210
+CX      : 60
+CY      : 30
+ControlLayer: 0
+Title   : Save con
+Class   : PushButton
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 2
+Local : 1
+LastEditorEvent : 3
+OrigTitle : PushButton43
+
+#Proc: onClick
+procedure PushButton43_onClick (integer self, integer event, sequence params)--params is ()
+   save_config()
+end procedure
+setHandler( PushButton43, w32HClick, routine_id("PushButton43_onClick"))
+#EndProc
+
+#Control: PushButton16
+AWindow : 30
+X       : 0
+Y       : 220
+CX      : 100
+CY      : 20
+ControlLayer: 0
+Title   : Create Muledump
+Class   : PushButton
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 24
+Local : 1
+LastEditorEvent : 3
+OrigTitle : PushButton16
+
+#Proc: onClick
+procedure PushButton16_onClick (integer self, integer event, sequence params)--params is ()
+    sequence fname,dpath
+  integer fn
+  object ret
+  dpath=current_dir()
+
+  ret=0
+  fname=getSaveFileName(Window1,"accounts",{ "Mule Creator", "*.js"})
+  if length(fname)>0 then
+    fname=get_file_path_part(fname)&get_file_name_part(fname)
+
+    ret=0
+    if file_exsist(fname&".js") then
+      ret = message_box("Warning "&get_file_name_part(fname)&" already exists do you the file to be overwritten?","Warning",MB_YESNO)	
+    end if
+
+
+    if ret=IDNO then
+      returnValue(1)
+      return
+    end if
+
+    fn=open(fname&".js","w")
+
+    puts(fn,"var accounts = {\n")
+    for i=1 to length(mule_list) do
+      puts(fn,"'"&mule_list[i][1]&"': "&'"'&mule_list[i][2]&'"'&",\n")
+    end for
+    puts(fn,"}")
+    close(fn)
+
+  end if
+
+  if chdir(dpath) then
+  	
+  end if
+end procedure
+setHandler( PushButton16, w32HClick, routine_id("PushButton16_onClick"))
+#EndProc
+
+#Control: PushButton17
+AWindow : 30
+X       : 110
+Y       : 220
+CX      : 100
+CY      : 20
+ControlLayer: 0
+Title   : Create Textfile
+Class   : PushButton
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 25
+Local : 1
+LastEditorEvent : 3
+OrigTitle : PushButton17
+
+#Proc: onClick
+procedure PushButton17_onClick (integer self, integer event, sequence params)--params is ()
+  sequence fname,dpath
+  integer fn
+  object ret
+  dpath=current_dir()
+
+
+  fname=getSaveFileName(Window1,"accounts",{ "Mule Creator", "*.txt"})
+  if length(fname)>0 then
+    fname=get_file_path_part(fname)&get_file_name_part(fname)
+
+    ret=0
+    if file_exsist(fname&".txt") then
+      ret = message_box("Warning "&get_file_name_part(fname)&" already exists do you the file to be overwritten?","Warning",MB_YESNO)	
+    end if
+
+
+    if ret=IDNO then
+      returnValue(1)
+      return
+    end if
+
+    fn=open(fname&".txt","w")
+
+
+    puts(fn,"var accounts = {\n")
+    for i=1 to length(mule_list) do
+      puts(fn,"'"&mule_list[i][1]&"': "&'"'&mule_list[i][2]&'"'&", "&mule_list[i][3]&"\n")
+    end for
+    puts(fn,"}")
+    close(fn)
+
+  end if
+
+    if chdir(dpath) then
+  	
+  end if
+end procedure
+setHandler( PushButton17, w32HClick, routine_id("PushButton17_onClick"))
+#EndProc
+
+#Control: LText41
+AWindow : 30
+X       : 210
+Y       : 220
+CX      : 70
+CY      : 20
+ControlLayer: 0
+Title   : Buid Version
+Class   : LText
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 3
+Local : 1
+OrigTitle : LText41
+
+#Control: textbox_rotmg_buildversion
+AWindow : 30
+X       : 280
+Y       : 220
+CX      : 50
+CY      : 20
+ControlLayer: 0
+Title   : 16.4
+Class   : EditText
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 5
+Local : 1
+OrigTitle : EditText42
+
+#Control: PushButton30
+AWindow : 30
+X       : 0
+Y       : 250
+CX      : 280
+CY      : 30
+ControlLayer: 0
+Title   : Convert Accounts.js to SOL One click login
+Class   : PushButton
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 10
+Local : 1
+LastEditorEvent : 3
+OrigTitle : PushButton30
+
+#Proc: onClick
+procedure PushButton30_onClick (integer self, integer event, sequence params)--params is ()
+   sequence fname,dpath
+   object ret
+
+  dpath=current_dir()
+  fname=getOpenFileName(Window1,"account",{ "mules", "*.js"})
+
+  if length(fname)>0 then
+    accounts_list=convert_accounts(fname)
+  end if
+
+  if chdir(dpath) then
+  	
+  end if
+
+  ret=regQueryValue(PROGRAM_KEY,"FormMenu",0)
+  if sequence(ret) then
+    ret=serial_encrypt_client_xor(fromBase64(ret))
+    ret=ret[1]
+  else
+    ret=convert_limit
+  end if
+
+  if ret>=convert_limit then
+     ret = message_box("Converting limited reached "&sprint(convert_limit),"Information",MB_TASKMODAL + MB_ICONINFORMATION + MB_OK)
+    return
+  end if
+
+  if length(accounts_list) then
+    webserver_mode=1
+    openWindow(Window3, Modal)
+    account_email=accounts_list[1][1]
+    account_pass=accounts_list[1][2]
+    account_num=1
+    connect_to_webserver()
+    setScrollRange( progressbar1, 1, length(accounts_list) )
+  	setTimer(Window1,1003,1000*20)
+  	setScrollPos( progressbar1, 1)
+  else
+    ret = message_box("Account.js is empty","Information",MB_TASKMODAL + MB_ICONINFORMATION + MB_OK)
+  end if
+
+end procedure
+setHandler( PushButton30, w32HClick, routine_id("PushButton30_onClick"))
+#EndProc
+
+#Control: PushButton20
+AWindow : 30
+X       : 290
+Y       : 250
+CX      : 100
+CY      : 30
+ControlLayer: 0
+Title   : One Click Login
+Class   : PushButton
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 11
+Local : 1
+LastEditorEvent : 3
+OrigTitle : PushButton20
+
+#Proc: onClick
+procedure PushButton20_onClick (integer self, integer event, sequence params)--params is ()
+  openWindow(Window2, Modal)
+end procedure
+setHandler( PushButton20, w32HClick, routine_id("PushButton20_onClick"))
+#EndProc
+
+#Control: console_output
+AWindow : 30
+X       : 0
+Y       : 290
+CX      : 400
+CY      : 170
+ControlLayer: 0
+Title   : 
+Class   : MleText
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 23
+Local : 1
+OrigTitle : MleText15
+
+#Window 2
+#TabInfo
+TabText: Layer 0
+TabRenamed: 0
+TabNumber: 0
+TabsetLayer: 0
+#Control: Window2
+X       : 0
+Y       : 0
+CX      : 245
+CY      : 507
+ControlLayer: 0
+Title   : One Click Login
+Class   : Window
+Enabled : 0
+Checked : 0
+Parent  : Window1
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+BkColor : 0
+SystemBkColor : BTNFACE
+EnableC : 1
+Style   : 0
+TypStyle: 
+ExStyle : 0
+Local : 1
+LastEditorEvent : 1
+
+#Proc: (General)
+
+
+
+
+
+
+sequence mule_manager_list
+mule_manager_list={}
+
+function load_account_from_sol(sequence fname, integer count)
+  integer fn,char
+  sequence bytes,name1,name2,data1,data2
+  object ret
+  bytes={}
+  fn=open(fname,"rb")
+  --puts(1,fname)
+
+  while 1 do
+  	char=getc(fn)
+  	if char=-1 then
+  	  exit	
+  	end if
+  	bytes&=char
+  end while
+
+  close(fn)
+
+  input_stream_set(sol_inputstream,bytes)
+  ret=input_stream_readfully(sol_inputstream,6)
+  ret=input_stream_readfully(sol_inputstream,4)
+  ret=input_stream_readfully(sol_inputstream,7)
+  ret=input_stream_readbyte(sol_inputstream)
+  ret=input_stream_readfully(sol_inputstream,ret)
+  ret=input_stream_readfully(sol_inputstream,3)
+  ret=input_stream_readfully(sol_inputstream,2)
+  ret=input_stream_readfully(sol_inputstream,floor(ret[2]/2))
+  name1=ret
+  ret=input_stream_readfully(sol_inputstream,2)
+  ret=input_stream_readfully(sol_inputstream,floor(ret[2]/2))
+  data1=ret
+  ret=input_stream_readfully(sol_inputstream,2)
+  ret=input_stream_readfully(sol_inputstream,floor(ret[2]/2))
+  name2=ret
+  ret=input_stream_readfully(sol_inputstream,2)
+  ret=input_stream_readfully(sol_inputstream,floor(ret[2]/2))
+  data2=ret
+
+
+
+  --puts(1,name1&"\n")
+  --puts(1,data1&"\n")
+  --puts(1,name2&"\n")
+  --puts(1,data2&"\n")
+  if equal(name1,"GUID")=1 then
+    return {data1,data2,get_file_name_part(fname),count}
+  else
+    return {data2,data1, get_file_name_part(fname),count}
+  end if
+
+
+end function
+
+
+--%LOCALAPPDATA%\Local\Google\Chrome\User Data\Default\Pepper Data\Shockwave Flash\WritableRoot\#SharedObjects\ (Windows)
+
+--this just one big hack only work for windows vista and above also could fail because the user as change the account name.
+--sequence user_name
+--user_name  = getUserName()
+integer fn,count
+sequence web_folder,web_folder_chrome,appdata_romining,appdata_local
+
+object filelist,user_list
+
+
+appdata_romining=appdata_path()&"\\"
+appdata_local=localappdata_path()&"\\"
+
+
+if length(appdata_romining)=0 then
+  puts(1,"unable to get appdata path"&"\n")	
+end if
+
+if length(appdata_local)=0 then
+  puts(1,"unable to get localappdata path"&"\n")	
+end if
+
+--puts(1,appdata_romining&"\n")
+--puts(1,appdata_local&"\n")
+
+if length(appdata_romining) then
+filelist = dir(appdata_romining&"Macromedia\\Flash Player\\#SharedObjects\\")
+if sequence(filelist) and length(filelist) then
+  web_folder=filelist[3][D_NAME]
+end if
+end if
+
+if length(appdata_local) then
+filelist = dir(appdata_local&"Google\\Chrome\\User Data\\Default\\Pepper Data\\Shockwave Flash\\WritableRoot\\#SharedObjects\\")
+if sequence(filelist)  and length(filelist) then
+  web_folder_chrome=filelist[3][D_NAME]
+end if
+end if
+
+procedure one_click_login_init()
+	
+mule_manager_list={}
+ eraseItems( List1 )
+
+user_list=dir("mules\\")
+if sequence(user_list) then
+fn=open("names.txt","w")
+count=1
+for i=3 to length(user_list) do
+  --if count<convert_limit then
+  	addItem(List1,sprint(count)&" "&user_list[i][D_NAME])
+    puts(fn,sprint(count)&" "&user_list[i][D_NAME]&"\n")
+    mule_manager_list=append(mule_manager_list, load_account_from_sol("mules\\"&user_list[i][D_NAME],count) )
+    count+=1
+ -- end if
+end for
+setIndex(List1,1)
+close(fn)
+
+end if
+
+end procedure
+#EndProc
+
+#Proc: onOpen
+procedure Window2_onOpen (integer self, integer event, sequence params)--params is ()
+  one_click_login_init()
+end procedure
+setHandler( Window2, w32HOpen, routine_id("Window2_onOpen"))
+#EndProc
+
+#Control: List1
+AWindow : 30
+X       : 0
+Y       : 0
+CX      : 220
+CY      : 330
+ControlLayer: 0
+Title   : 
+Class   : List
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 1
+Local : 1
+OrigTitle : List21
+
+#Control: PushButton22
+AWindow : 30
+X       : 10
+Y       : 340
+CX      : 70
+CY      : 20
+ControlLayer: 0
+Title   : Firefox
+Class   : PushButton
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 2
+Local : 1
+LastEditorEvent : 3
+OrigTitle : PushButton22
+
+#Proc: onClick
+procedure PushButton22_onClick (integer self, integer event, sequence params)--params is ()
+      integer ret
+
+    sequence fname
+    if getIndex(List1)=0 then
+      return
+    end if
+    --fname=getItem(List1,getIndex(List1))
+    fname=mule_manager_list[getIndex(List1)][3]&".sol"
+
+    ret=copyFile("mules\\"&fname, appdata_romining&"Macromedia\\Flash Player\\#SharedObjects\\"&web_folder&"\\www.realmofthemadgod.com\\RotMG.sol",0)
+    ret= shellExecuteEx( "open",
+    -- with the program to call:
+    "firefox.exe",
+    -- the parameter to pass to application to run:
+     "www.realmofthemadgod.com",
+    -- in this directory:
+    "",
+    -- and last,  'show' parameter:
+    SW_SHOW, 0 )
+end procedure
+setHandler( PushButton22, w32HClick, routine_id("PushButton22_onClick"))
+#EndProc
+
+#Control: PushButton26
+AWindow : 30
+X       : 100
+Y       : 340
+CX      : 110
+CY      : 20
+ControlLayer: 0
+Title   : Locate flash player
+Class   : PushButton
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 8
+Local : 1
+LastEditorEvent : 3
+OrigTitle : PushButton26
+
+#Proc: onClick
+procedure PushButton26_onClick (integer self, integer event, sequence params)--params is ()
+    sequence fname,dpath
+
+   dpath=current_dir()
+  fname=getOpenFileName(Window1,"flashplayer_11_sa.exe",{ "executeable", "*.exe"})
+  if length(fname)>0 then
+    flash_player_loc=fname
+    setText(lable_flash_player,flash_player_loc)
+  end if
+
+   if chdir(dpath) then
+  	
+  end if
+  save_config()
+end procedure
+setHandler( PushButton26, w32HClick, routine_id("PushButton26_onClick"))
+#EndProc
+
+#Control: lable_flash_player
+AWindow : 30
+X       : 100
+Y       : 360
+CX      : 110
+CY      : 30
+ControlLayer: 0
+Title   : 
+Class   : LText
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 4
+Local : 1
+OrigTitle : LText39
+
+#Control: PushButton23
+AWindow : 30
+X       : 10
+Y       : 370
+CX      : 70
+CY      : 20
+ControlLayer: 0
+Title   : IExplore
+Class   : PushButton
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 5
+Local : 1
+LastEditorEvent : 3
+OrigTitle : PushButton23
+
+#Proc: onClick
+procedure PushButton23_onClick (integer self, integer event, sequence params)--params is ()
+        integer ret
+
+    sequence fname
+    --fname=getItem(List1,getIndex(List1))
+     if getIndex(List1)=0 then
+      return
+    end if
+    fname=mule_manager_list[getIndex(List1)][3]&".sol"
+
+    ret=copyFile("mules\\"&fname, appdata_romining&"Macromedia\\Flash Player\\#SharedObjects\\"&web_folder&"\\www.realmofthemadgod.com\\RotMG.sol",0)
+    ret= shellExecuteEx( "open",
+    -- with the program to call:
+    "iexplore.exe",
+    -- the parameter to pass to application to run:
+     "www.realmofthemadgod.com",
+    -- in this directory:
+    "",
+    -- and last,  'show' parameter:
+    SW_SHOW, 0 )
+end procedure
+setHandler( PushButton23, w32HClick, routine_id("PushButton23_onClick"))
+#EndProc
+
+#Control: PushButton27
+AWindow : 30
+X       : 100
+Y       : 390
+CX      : 110
+CY      : 20
+ControlLayer: 0
+Title   : Locate client.swf
+Class   : PushButton
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 9
+Local : 1
+LastEditorEvent : 3
+OrigTitle : PushButton27
+
+#Proc: onClick
+procedure PushButton27_onClick (integer self, integer event, sequence params)--params is ()
+  sequence fname,dpath
+
+  dpath=current_dir()
+
+  fname=getOpenFileName(Window1,"client.swf",{ "shockwave", "*.swf"})
+  if length(fname)>0 then
+    client_swf_loc=fname
+    setText(lable_flash_client,client_swf_loc)
+  end if
+
+  if chdir(dpath) then
+
+  end if
+  save_config()
+end procedure
+setHandler( PushButton27, w32HClick, routine_id("PushButton27_onClick"))
+#EndProc
+
+#Control: PushButton24
+AWindow : 30
+X       : 10
+Y       : 400
+CX      : 70
+CY      : 20
+ControlLayer: 0
+Title   : Chrome
+Class   : PushButton
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 6
+Local : 1
+LastEditorEvent : 3
+OrigTitle : PushButton24
+
+#Proc: onClick
+procedure PushButton24_onClick (integer self, integer event, sequence params)--params is ()
+      integer ret
+    sequence fname
+     if getIndex(List1)=0 then
+      return
+    end if
+    --fname=getItem(List1,getIndex(List1))
+    fname=mule_manager_list[getIndex(List1)][3]&".sol"
+    --fname=mule_manager_list[getIndex(List1)][3]
+    --puts(1,fname)
+    --%LOCALAPPDATA%\Local\Google\Chrome\User Data\Default\Pepper Data\Shockwave Flash\WritableRoot\#SharedObjects\ (Windows)
+
+    ret=copyFile("mules\\"&fname, appdata_local&"Google\\Chrome\\User Data\\Default\\Pepper Data\\Shockwave Flash\\WritableRoot\\#SharedObjects\\"&web_folder_chrome&"\\www.realmofthemadgod.com\\RotMG.sol",0)
+    ret= shellExecuteEx( "open",
+    -- with the program to call:
+    appdata_local&"Google\\Chrome\\Application\\chrome.exe",
+    -- the parameter to pass to application to run:
+     "www.realmofthemadgod.com",
+    -- in this directory:
+    "",
+    -- and last,  'show' parameter:
+    SW_SHOW, 0 )
+end procedure
+setHandler( PushButton24, w32HClick, routine_id("PushButton24_onClick"))
+#EndProc
+
+#Control: lable_flash_client
+AWindow : 30
+X       : 100
+Y       : 410
+CX      : 110
+CY      : 30
+ControlLayer: 0
+Title   : 
+Class   : LText
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 3
+Local : 1
+OrigTitle : LText38
+
+#Control: PushButton25
+AWindow : 30
+X       : 110
+Y       : 440
+CX      : 80
+CY      : 20
+ControlLayer: 0
+Title   : Flash Player 11
+Class   : PushButton
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 7
+Local : 1
+LastEditorEvent : 3
+OrigTitle : PushButton25
+
+#Proc: onClick
+procedure PushButton25_onClick (integer self, integer event, sequence params)--params is ()
+    integer ret
+    sequence fname
+
+     if getIndex(List1)=0 then
+      return
+    end if
+
+    fname=mule_manager_list[getIndex(List1)][3]&".sol"
+
+    ret=copyFile("mules\\"&fname, appdata_romining&"Macromedia\\Flash Player\\#SharedObjects\\"&web_folder&"\\#localWithNet\\RotMG.sol",0)
+    ret= shellExecuteEx( "open",
+    -- with the program to call:
+    flash_player_loc,
+    -- the parameter to pass to application to run:
+     client_swf_loc,
+    -- in this directory:
+    "",
+    -- and last,  'show' parameter:
+    SW_SHOW, 0 )
+end procedure
+setHandler( PushButton25, w32HClick, routine_id("PushButton25_onClick"))
+#EndProc
+
+#Window 3
+#TabInfo
+TabText: Layer 0
+TabRenamed: 0
+TabNumber: 0
+TabsetLayer: 0
+#Control: Window3
+X       : 0
+Y       : 0
+CX      : 516
+CY      : 128
+ControlLayer: 0
+Title   : MuleDump accounts.js convert to one click login.
+Class   : Window
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+BkColor : 0
+SystemBkColor : BTNFACE
+EnableC : 1
+DefaultsClass : WS_SYSMENU
+Style   : WS_THICKFRAME, WS_SYSMENU, WS_MINIMIZEBOX, WS_MAXIMIZEBOX
+TypStyle: {...}
+ExStyle : WS_EX_DLGMODALFRAME
+Local : 1
+
+#Control: progressbar1
+AWindow : 30
+X       : 10
+Y       : 20
+CX      : 470
+CY      : 50
+ControlLayer: 0
+Title   : 
+Class   : ProgressBar
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+EnableC : 1
+Style   : 
+TypStyle: 
+ExStyle : 0
+TabOrder : 1
+Local : 1
+OrigTitle : ProgressBar37
+
+#Window 4
+#TabInfo
+TabText: Layer 0
+TabRenamed: 0
+TabNumber: 0
+TabsetLayer: 0
+#Control: Window4
+X       : 0
+Y       : 0
+CX      : 606
+CY      : 425
+ControlLayer: 0
+Title   : MuleDump
+Class   : Window
+Enabled : 0
+Checked : 0
+Parent  : 
+PClass  : 
+SeqParentName  : 
+SeqParentClass  : 
+SeqChildName  : 
+Visible : 1
+BkColor : 0
+SystemBkColor : BTNFACE
+EnableC : 1
+Style   : 0
+TypStyle: 
+ExStyle : 0
+Local : 1
+LastEditorEvent : 13
+
+#Proc: onOpen
+procedure Window4_onOpen (integer self, integer event, sequence params)--params is ()
+  one_click_login_init()
+end procedure
+setHandler( Window4, w32HOpen, routine_id("Window4_onOpen"))
+#EndProc
+

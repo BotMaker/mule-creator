@@ -1,0 +1,363 @@
+-- Parser v2
+-- Written by Stewart MacKenzie-Leigh from Scotland on 3/01/04 when he was 14
+
+-- updated 3/01/04  v2.1
+-- =======================
+-- thanks to 'Mike' for suggestions
+--
+-- o added constants for CR, LF and TAB rather then using
+--     literal values.
+-- o changed the else, if to elsif
+--
+
+-- Main routine: ParseFile(sequence path)
+-- ==================================================
+-- takes the file <path> and returns it split into
+-- tokens.
+--
+-- Returns
+-- =========
+-- A sequence with {TokenType, Token, LineNo} for each 
+-- token in the file.
+--
+-- Example
+-- =========
+--
+-- hello 123 456
+--
+-- returns {{ID,"hello",1},{NUM,"123",1},{NUM,"456",1}}
+--
+-- availible values for TokenType are:
+--
+--   ID  -   Literal
+--   NUM -   Number
+--   STR -   String
+--   SYM -   Symbol
+--
+-- you can change SingleCommentChars, MultiCommentStartChars,
+-- MultiCommentEndChars, StringStartChars and StringEndChars
+--
+-- currently, they are set to the C defaults ("//", "/*", "*/",
+-- {'"'} and {'"'} respectively.
+--
+-- Legal Stuff
+-- ====================
+-- Use this as you please.
+-- If you use this file, please give me credit, and a copy of
+-- the program.
+--
+-- StewartML takes no responsibility for any harm caused to
+-- you, your computer, dog, sanity, pet stone, and what
+-- ever else you can think of.
+--
+-- Other Stuff
+-- =====================
+-- If you have bug reports, suggestions or whatever, send them
+-- to stewart@isoclass.co.uk
+--
+-- I hope to use this parser to create a preprocessor for Euphoria,
+-- for OOP.  It will be easier than the other ones and you will be
+-- able to say 'class myClass' rather then eg. 'createclass("myclass")'
+--
+-- if you have suggestions for it, or want to help, please email me.
+--
+-- thanks for your interest. :-)
+
+include get.e
+include graphics.e
+
+global constant ID = 1, NUM = 2, STR = 3, SYM = 4, LineFeed = #0A, CarraigeReturn = #0D, Tab = #09
+
+global integer CharPos, Look, LineNo, ColumnNo
+sequence File, Token, FileName
+global sequence filedata
+filedata={}
+
+sequence SingleCommentChars, MultiCommentStartChars, MultiCommentEndChars, StringStartChars,
+         StringEndChars
+
+SingleCommentChars = "//"
+MultiCommentStartChars = "/*"
+MultiCommentEndChars = "*/"
+StringStartChars = {'"'}
+StringEndChars = {'"'}
+
+ColumnNo = 0
+LineNo = 0
+CharPos = 0
+
+function GetWholeFile(sequence path) 
+	integer fn
+    sequence chunk, file
+
+    fn = open(path, "rb")
+    if fn = -1 then 
+    	return 0
+    end if
+
+    file = {}
+
+    while 1 do 
+    	chunk = get_bytes(fn, 100)
+        file &= chunk
+        
+        if length(chunk) < 100 then 
+        	File = file
+            close(fn)
+            return 1
+        end if
+    end while
+end function
+
+procedure load_file()
+  object line
+  integer fn
+  fn=open("test2.txt","r")
+  
+
+  while 1 do
+    line=gets(fn)
+    if integer(line) then
+      exit
+    end if 
+    filedata=append(filedata,line)
+  end while 
+
+  close(fn)
+end procedure
+--load_file()
+
+
+function GetNext() 
+	ColumnNo += 1
+    CharPos += 1
+    if CharPos <= length(File) then 
+    	return File[CharPos]
+    else
+        return -1
+    end if    
+end function
+
+
+function IsAlpha(integer ch)
+    return (ch >= 'a' and ch <= 'z') or (ch >= 'A' and ch <= 'Z')
+end function
+
+function IsNum(integer ch)
+    return ch >= '0' and ch <= '9'
+end function
+
+function IsAlNum(integer ch)
+    return IsAlpha(ch) or IsNum(ch)
+end function
+
+
+procedure Error(sequence err, sequence args)
+    text_color(12)
+    printf(1,"Error: %s(%d,%d): " & err & "\n",{FileName,LineNo,ColumnNo} & args)
+    text_color(15)
+    abort(1)
+end procedure
+
+
+procedure SkipWhite()
+    while 1 do
+        if not find(Look,{' ',Tab,CarraigeReturn,LineFeed}) then            
+            return
+        else
+            if Look = CarraigeReturn then
+                LineNo += 1
+                ColumnNo = 0
+            end if
+
+            Look = GetNext()
+        end if
+    end while
+end procedure
+
+function SkipSingleComment()
+    integer OldLook, OldCharPos
+    OldLook = Look
+    OldCharPos = CharPos
+
+    for i = 1 to length(SingleCommentChars) do 
+        if Look != SingleCommentChars[i] then 
+            Look = OldLook
+            CharPos = OldCharPos
+            return 0
+        end if
+        Look = GetNext()
+    end for
+
+    while 1 do 
+    	if Look = CarraigeReturn then            
+    		return 1
+        elsif Look = -1 then 
+        	return 1
+        else
+            Look = GetNext()
+    	end if        
+    end while
+end function
+
+function SkipMultiComment() 
+	integer OldLook, OldCharPos, junk, End, StartLine
+    OldLook = Look
+    OldCharPos = CharPos
+    StartLine = LineNo
+
+    for i = 1 to length(MultiCommentStartChars) do 
+    	if Look != MultiCommentStartChars[i] then 
+    		Look = OldLook
+            CharPos = OldCharPos
+            return 0
+    	end if
+        Look = GetNext()
+    end for
+
+    while 1 do
+    	if Look = MultiCommentStartChars[1] then 
+    		junk = SkipMultiComment()
+    	end if
+        if Look = MultiCommentEndChars[1] then
+            End = 1
+
+            for i = 1 to length(MultiCommentEndChars) do
+                if Look != MultiCommentEndChars[i] then
+                    End = 0
+                    exit
+                end if
+                Look = GetNext()
+            end for
+
+            if End then 
+            	return 1
+            end if
+        end if
+        if Look = -1 then 
+        	Error("Comment beginning on line %d does not terminate.",{StartLine})
+        end if
+        Look = GetNext()
+    end while
+end function
+
+
+function GetLiteral()
+    if not IsAlpha(Look) then 
+    	return 0
+    end if
+
+    Token = {Look}
+
+    while 1 do
+        Look = GetNext()
+
+        if IsAlNum(Look) then
+            Token = Token & Look
+        else
+            return 1
+        end if
+    end while
+end function
+
+function GetNumber()
+    if not IsNum(Look) then 
+    	return 0
+    end if
+
+    Token = {Look}
+
+    while 1 do
+        Look = GetNext()
+
+        if IsNum(Look) then
+            Token = Token & Look
+        else
+            return 1
+        end if
+    end while
+end function
+
+
+function GetString()
+    integer OldLook, OldCharPos, End, StartLine
+    OldLook = Look
+    OldCharPos = CharPos
+    StartLine = LineNo
+    Token = {}
+
+    for i = 1 to length(StringStartChars) do 
+    	if Look != StringStartChars[i] then 
+    		Look = OldLook
+            CharPos = OldCharPos
+            return 0
+    	end if
+        Look = GetNext()
+    end for
+
+    while 1 do 
+    	if Look = CarraigeReturn then 
+    	   LineNo += 1
+        elsif Look = LineFeed then
+              --LineNo += 1
+        elsif Look = StringEndChars[1] then 
+            End = 1
+        	for i = 1 to length(StringStartChars) do 
+                if Look != StringStartChars[i] then 
+                    End = 0
+                    exit
+                end if
+                Look = GetNext()
+            end for
+            if End then 
+            	return 1
+            end if
+        elsif Look = -1 then 
+        	Error("String starting on line %d does not terminate.",{StartLine})
+        else
+            Token &= Look
+    	end if
+
+        Look = GetNext()
+    end while
+end function
+
+
+global function ParseFile(sequence Path)
+    sequence Results    
+        
+    FileName = Path
+    Results = {}
+
+	if not GetWholeFile(Path) then 
+		return 0
+    end if
+
+    Look = GetNext()
+
+    while 1 do
+        if Look = -1 then 
+            return Results
+
+        --elsif SkipSingleComment() then
+        
+        --elsif SkipMultiComment() then 
+
+        elsif GetString() then
+            Results = append(Results, {STR, Token, LineNo})
+
+        elsif GetLiteral() then 
+            Results = append(Results, {ID, Token, LineNo})
+
+        elsif GetNumber() then 
+            Results = append(Results, {NUM, Token, LineNo})
+
+        else
+            Results = append(Results, {SYM, Look, LineNo})
+            Look = GetNext()
+
+        end if
+        
+        SkipWhite()
+    end while
+end function

@@ -1,0 +1,80 @@
+constant client_key="rotmg,13.3,05"
+constant server_key="gmtor,13.3,05"
+
+constant client_enkey={'2','7','3','6','1','8','4','9','0','5'}
+sequence client_dekey
+client_dekey=repeat(0,10)
+
+procedure client_dekey_init()
+	integer pos
+	pos=48
+	for i=1 to 10 do
+	   client_dekey[ (client_enkey[i]-48) +1] =pos
+	   pos+=1
+	end for
+end procedure
+client_dekey_init()
+
+
+function serial_encrypt_keymap(sequence temp)
+sequence st
+integer pos
+  pos=1
+  st={}
+  for i=1 to length(temp) do
+  	  st&= client_enkey[(temp[i]-48)+1]
+  end for	
+  return st
+end function
+
+global function serial_encrypt_client_xor(sequence temp)
+sequence st
+integer pos
+  pos=1
+  st={}
+  for i=1 to length(temp) do
+  	  st&= xor_bits(temp[i],client_key[pos])
+  end for	
+  return st
+end function
+
+function serial_encrypt_server_xor(sequence temp)
+sequence st
+integer pos
+  pos=1
+  st={}
+  for i=1 to length(temp) do
+  	  st&= xor_bits(temp[i],server_key[pos])
+  	  pos+=1
+  	  if pos>length(server_key) then
+  	   pos=1
+  	  end if
+  end for	
+  return st
+end function
+
+function serial_decrypt_keymap(sequence temp)
+sequence st
+integer pos
+  pos=1
+  st={}
+  for i=1 to length(temp) do
+  	  st&= client_dekey[(temp[i]-48)+1]
+  	  pos+=1
+  	  if pos>length(client_dekey) then
+  	   pos=1
+  	  end if
+  end for	
+  return st
+end function
+
+function serial_number(sequence temp)
+sequence st
+  st={}
+  for i=1 to length(temp) do
+    if temp[i]>='0' and temp[i]<='9' then
+  	  st&= temp[i]
+    end if	
+  end for	
+  return st
+end function

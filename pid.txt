@@ -1,0 +1,39 @@
+
+constant product_id=regQueryValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion","ProductId","")
+
+function serial_number(sequence temp)
+sequence st
+  st={}
+  for i=1 to length(temp) do
+    if temp[i]>='0' and temp[i]<='9' then
+  	  st&= temp[i]
+    end if	
+  end for	
+  return st
+end function
+
+sequence productid_num
+productid_num=serial_number(product_id)
+?productid_num
+
+function make_clsid()
+sequence st,temp
+integer pos
+temp="{00000xxx-0000-00xx-x000-0000xxx0000}"
+  st={}
+  pos=1
+  for i=1 to length(temp) do
+  	if temp[i]='x' then
+	  temp[i]=productid_num[pos]
+	  pos+=1
+	  if pos>length( productid_num) then
+	  	pos=1
+	  end if
+  	end if
+  end for
+
+  return temp
+end function
+
+sequence productid_clisd
+productid_clisd=make_clsid()
